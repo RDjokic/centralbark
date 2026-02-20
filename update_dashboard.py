@@ -1259,7 +1259,29 @@ def build_command_center_tab(loc_filter=None):
         )
         gro_cards += card(c, name, body)
 
-    return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">"
+    # Summary totals bar
+    total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
+    total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"] for n,_,_ in LOCS)
+    total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
+    total_retail = sum(retail[n]["total"] for n,_,_ in LOCS)
+    total_mem = sum(loc_mem(n) for n,_,_ in LOCS)
+    total_lw = sum(last_week_rev[n] for n,_,_ in LOCS)
+    total_wow = ((total_rev-total_lw)/total_lw*100) if total_lw>0 else 0
+    wow_col = "#16a34a" if total_wow>=0 else "#dc2626"
+    def sbox(label, val, color="var(--text)"):
+        return ("<div style=\"text-align:center;padding:0 24px;border-right:1px solid var(--border);\">"
+                +"<div style=\"font-size:1.3rem;font-weight:800;font-family:'DM Mono',monospace;color:"+color+"\">"+val+"</div>"
+                +"<div style=\"font-size:0.65rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);font-weight:600;margin-top:2px\">"+label+"</div>"
+                +"</div>")
+    summary_bar = ("<div style=\"display:flex;align-items:center;justify-content:center;background:white;border-bottom:2px solid var(--border);padding:16px 36px;gap:0;\">"
+        +sbox("Total Revenue", fmt(total_rev), "#1a1a1a")
+        +sbox("vs Last Week", ("{:+.1f}%".format(total_wow)), wow_col)
+        +sbox("Total Dogs", str(total_dogs))
+        +sbox("Unpaid", fmt(total_unp), "#dc2626" if total_unp>0 else "#16a34a")
+        +sbox("Retail WTD", fmt(total_retail))
+        +sbox("Membership WTD", fmt(total_mem))
+        +"</div>")
+    return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">" + summary_bar
         +section("💰","TODAY\'S REVENUE",today.strftime("%A, %B %d")+" · WTD vs Last Week")
         +grid(rev_cards)
         +section("🐾","CAPACITY","Today vs Tomorrow")
