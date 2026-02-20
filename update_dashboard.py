@@ -1288,7 +1288,7 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
     total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
-    total_today = sum(sum(revenue[n].get(adate(today_d),{}).values()) for n,_,_ in LOCS)
+    total_today = sum(sum(revenue[n].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
     total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"] for n,_,_ in LOCS)
     total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
     total_retail = sum(retail[n]["total"] for n,_,_ in LOCS)
