@@ -1157,8 +1157,15 @@ def build_command_center_tab(loc_filter=None):
         dogs = dc_t + bo_t
         today_rev = sum(sum(revenue[name].get(adate(dk),{}).values()) for dk in DAY_KEYS[:today.weekday()+1])
         avg_ticket = (today_rev/dogs) if dogs>0 else 0
-        avg_4wk = sc["avg"]["dc"]*30 + sc["avg"]["bo"]*45
-        vs4 = ((exp-avg_4wk)/avg_4wk*100) if avg_4wk>0 else 0
+        # 4-week avg: average revenue on this same day of week over last 4 weeks
+        same_dow_revs = []
+        for wk in range(1,5):
+            past_d = today_d - __import__("datetime").timedelta(weeks=wk)
+            past_rev = sum(revenue[name].get(past_d.strftime("%-m/%-d/%Y"),{}).values())
+            if past_rev > 0: same_dow_revs.append(past_rev)
+        avg_4wk = sum(same_dow_revs)/len(same_dow_revs) if same_dow_revs else 0
+        today_only = sum(revenue[name].get(today_d.strftime("%-m/%-d/%Y"),{}).values())
+        vs4 = ((today_only-avg_4wk)/avg_4wk*100) if avg_4wk>0 else 0
         retail_wtd = sum(retail[name]["daily"].get(adate(dk),0) for dk in DAY_KEYS)
         mem_wtd = loc_mem(name)
         unp = loc_total(name,"unpaid"); unp_col = "#dc2626" if unp>0 else "#16a34a"
