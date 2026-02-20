@@ -1600,7 +1600,7 @@ def build_boarding_rows_single(name):
 
 def build_full_html(tabs, loc_filter=None, pin="0000", title="Central Bark Dashboard"):
     """
-    tabs: list of tab names to include e.g. ["exec","full","gm"]
+    tabs: list of tab names to include e.g. ["cc","full"]
     loc_filter: None = all locations, else location name string
     """
     tab_buttons = ""
