@@ -1161,7 +1161,7 @@ def build_command_center_tab(loc_filter=None):
         same_dow_revs = []
         for wk in range(1,5):
             past_d = today_d - __import__("datetime").timedelta(weeks=wk)
-            past_rev = sum(revenue[name].get(past_d.strftime("%-m/%-d/%Y"),{}).values())
+            past_rev = sum(revenue[name].get("{}/{}/{}".format(past_d.month,past_d.day,past_d.year),{}).values())
             if past_rev > 0: same_dow_revs.append(past_rev)
         avg_4wk = sum(same_dow_revs)/len(same_dow_revs) if same_dow_revs else 0
         today_only = sum(revenue[name].get(adate("{}/{}/{}".format(today_d.month,today_d.day,today_d.year)),{}).values())
