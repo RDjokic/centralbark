@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Central Bark — Labor Input</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#f5f5f0;color:#1a1a1a;font-family:'DM Sans',sans-serif;font-size:15px;padding:40px 24px;}
+header{margin-bottom:32px;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:3px;}.logo span{color:#ea580c;}
+.sub{font-size:0.8rem;color:#888;margin-top:4px;}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:24px;}
+th{background:#f0f0eb;font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#888;padding:12px 16px;font-weight:600;text-align:center;}
+th:first-child{text-align:left;}
+td{padding:10px 12px;border-bottom:1px solid #e2e2d8;text-align:center;}
+td:first-child{text-align:left;font-weight:600;font-size:0.85rem;white-space:nowrap;}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:middle;}
+input[type=number]{width:80px;padding:7px 8px;border:1.5px solid #e2e2d8;border-radius:6px;font-family:'DM Mono',monospace;font-size:0.85rem;text-align:right;background:#fafaf8;}
+input[type=number]:focus{outline:none;border-color:#ea580c;background:#fff;}
+.wtd{font-family:'DM Mono',monospace;font-weight:700;font-size:0.88rem;}
+.pct{font-family:'DM Mono',monospace;font-weight:700;font-size:0.88rem;}
+.green{color:#16a34a;}.yellow{color:#d97706;}.red{color:#dc2626;}.muted{color:#aaa;}
+.actions{display:flex;gap:12px;align-items:center;}
+.btn-save{padding:14px 32px;background:#ea580c;color:#fff;border:none;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-save:hover{background:#dc4f0a;}
+.btn-clear{padding:14px 20px;background:#e2e2d8;color:#555;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.target-row{display:flex;align-items:center;gap:12px;margin-bottom:24px;font-size:0.85rem;color:#555;}
+.target-row input{width:70px;padding:8px;border:1.5px solid #e2e2d8;border-radius:6px;font-family:'DM Mono',monospace;font-size:0.9rem;text-align:center;}
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:14px 28px;border-radius:8px;font-size:0.9rem;font-weight:500;display:none;z-index:999;transition:opacity 0.3s;}
+.toast.show{display:block;}
+.toast.success{background:#16a34a;}
+.toast.error{background:#dc2626;}
+.week-info{font-size:0.78rem;color:#888;font-family:'DM Mono',monospace;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Central <span>Bark</span></div>
+  <div class="sub">Weekly Labor Input — saves directly to your CentralBark folder</div>
+</header>
+
+<div class="week-info" id="week-info"></div>
+
+<div class="target-row">
+  <span>Labor target:</span>
+  <input type="number" id="target-pct" value="32" min="1" max="100" step="1">
+  <span>%</span>
+</div>
+
+<table id="labor-table">
+  <thead>
+    <tr>
+      <th>Location</th>
+      <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
+      <th>WTD Total</th><th>Labor %</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<div class="actions">
+  <button class="btn-save" onclick="saveData()">💾 Save & Update Dashboard</button>
+  <button class="btn-clear" onclick="clearAll()">Clear</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var LOCS = [
+  {name:"Wauwatosa",          color:"#f97316"},
+  {name:"Milwaukee Downtown", color:"#3b82f6"},
+  {name:"Grayslake",          color:"#10b981"},
+  {name:"Milwaukee Eastside", color:"#a855f7"},
+  {name:"Mequon",             color:"#f59e0b"},
+];
+var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+// Show current week
+var today = new Date();
+var dow = today.getDay();
+var weekStart = new Date(today);
+weekStart.setDate(today.getDate() - dow);
+var weekEnd = new Date(weekStart);
+weekEnd.setDate(weekStart.getDate() + 6);
+var fmt = function(d){ return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+document.getElementById('week-info').textContent = 'Week of ' + fmt(weekStart) + ' – ' + fmt(weekEnd);
+
+function key(loc, day){ return loc.replace(/ /g,"_") + "_" + day; }
+
+function buildTable(){
+  var tbody = document.getElementById("tbody");
+  LOCS.forEach(function(loc){
+    var tr = document.createElement("tr");
+    // Name cell
+    var td0 = document.createElement("td");
+    td0.innerHTML = '<span class="dot" style="background:'+loc.color+'"></span>'+loc.name;
+    tr.appendChild(td0);
+    // Day cells
+    DAYS.forEach(function(day){
+      var td = document.createElement("td");
+      var inp = document.createElement("input");
+      inp.type = "number"; inp.min = 0; inp.step = 1; inp.placeholder = "0";
+      inp.id = key(loc.name, day);
+      inp.oninput = function(){ updateRow(loc); };
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+    // WTD cell
+    var tdWtd = document.createElement("td");
+    tdWtd.className = "wtd muted"; tdWtd.id = key(loc.name,"wtd"); tdWtd.textContent = "—";
+    tr.appendChild(tdWtd);
+    // Pct cell
+    var tdPct = document.createElement("td");
+    tdPct.className = "pct muted"; tdPct.id = key(loc.name,"pct"); tdPct.textContent = "—";
+    tr.appendChild(tdPct);
+    tbody.appendChild(tr);
+  });
+}
+
+function getVal(loc, day){
+  var el = document.getElementById(key(loc, day));
+  return el ? (parseFloat(el.value)||0) : 0;
+}
+
+// Revenue estimates for live % preview (approximate WTD)
+var REV_EST = {
+  "Wauwatosa": 26000, "Milwaukee Downtown": 15000,
+  "Grayslake": 19000, "Milwaukee Eastside": 18000, "Mequon": 0
+};
+
+function updateRow(loc){
+  var wtd = 0;
+  DAYS.forEach(function(d){ wtd += getVal(loc.name, d); });
+  var wtdEl = document.getElementById(key(loc.name,"wtd"));
+  var pctEl = document.getElementById(key(loc.name,"pct"));
+  var target = parseFloat(document.getElementById('target-pct').value)||32;
+  
+  if(wtd > 0){
+    wtdEl.className = "wtd";
+    wtdEl.textContent = "$" + wtd.toLocaleString('en-US',{maximumFractionDigits:0});
+    var rev = REV_EST[loc.name]||0;
+    if(rev > 0){
+      var pct = (wtd/rev)*100;
+      pctEl.className = pct <= target-2 ? "pct green" : pct <= target+3 ? "pct yellow" : "pct red";
+      pctEl.textContent = pct.toFixed(1)+"%";
+    } else {
+      pctEl.className = "pct muted"; pctEl.textContent = "—";
+    }
+  } else {
+    wtdEl.className = "wtd muted"; wtdEl.textContent = "—";
+    pctEl.className = "pct muted"; pctEl.textContent = "—";
+  }
+}
+
+function getData(){
+  var labor = {};
+  LOCS.forEach(function(loc){
+    labor[loc.name] = {};
+    DAYS.forEach(function(d){ labor[loc.name][d] = getVal(loc.name, d); });
+  });
+  return {
+    labor: labor,
+    target_pct: (parseFloat(document.getElementById('target-pct').value)||32)/100,
+    saved_at: new Date().toISOString()
+  };
+}
+
+function showToast(msg, type){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + (type||'');
+  setTimeout(function(){ t.className = 'toast'; }, 3000);
+}
+
+function saveData(){
+  var data = getData();
+  var json = JSON.stringify(data, null, 2);
+  
+  // Try to save via file system API
+  if(window.showSaveFilePicker){
+    window.showSaveFilePicker({
+      suggestedName: 'labor_data.json',
+      types:[{description:'JSON',accept:{'application/json':['.json']}}]
+    }).then(function(handle){
+      return handle.createWritable();
+    }).then(function(writable){
+      writable.write(json);
+      return writable.close();
+    }).then(function(){
+      showToast('✓ Saved! Now run update_dashboard.py', 'success');
+    }).catch(function(e){
+      if(e.name !== 'AbortError') fallbackSave(json);
+    });
+  } else {
+    fallbackSave(json);
+  }
+}
+
+function fallbackSave(json){
+  // Download the file — user saves it to CentralBark folder
+  var blob = new Blob([json], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'labor_data.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('⬇ Save labor_data.json to your CentralBark folder', '');
+}
+
+function clearAll(){
+  LOCS.forEach(function(loc){
+    DAYS.forEach(function(d){
+      var el = document.getElementById(key(loc.name,d));
+      if(el) el.value = "";
+    });
+    updateRow(loc);
+  });
+}
+
+// Load existing data if available
+function tryLoadExisting(){
+  // Check localStorage for last saved values
+  var saved = localStorage.getItem('cb_labor');
+  if(saved){
+    try{
+      var data = JSON.parse(saved);
+      LOCS.forEach(function(loc){
+        if(data.labor && data.labor[loc.name]){
+          DAYS.forEach(function(d){
+            var el = document.getElementById(key(loc.name,d));
+            if(el && data.labor[loc.name][d]) el.value = data.labor[loc.name][d];
+          });
+          updateRow(loc);
+        }
+      });
+      if(data.target_pct) document.getElementById('target-pct').value = Math.round(data.target_pct*100);
+    } catch(e){}
+  }
+}
+
+buildTable();
+tryLoadExisting();
+
+// Also save to localStorage as backup
+document.addEventListener('input', function(){
+  localStorage.setItem('cb_labor', JSON.stringify(getData()));
+});
+</script>
+</body>
+</html>

@@ -294,7 +294,6 @@ grand_col  = sum(loc_total(n,"collected") for n,_,_ in LOCS)
 grand_unp  = sum(loc_total(n,"unpaid")    for n,_,_ in LOCS)
 grand_tips = sum(loc_total(n,"tips")      for n,_,_ in LOCS)
 tot_dc = sum(counts[n].get("DAYCARE", {}).get("TOTAL",0) for n,_,_ in LOCS)
-today_counts = {name: {"daycare": counts[name].get("DAYCARE",{}).get("TOTAL",0), "boarding": counts[name].get("BOARDING",{}).get("TOTAL",0)} for name,_,_ in LOCS}
 tot_bo = sum(counts[n].get("BOARDING",{}).get("TOTAL",0) for n,_,_ in LOCS)
 tot_gr = sum(counts[n].get("GROOMING",{}).get("TOTAL",0) for n,_,_ in LOCS)
 
