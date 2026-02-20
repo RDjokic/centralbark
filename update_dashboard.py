@@ -294,7 +294,9 @@ grand_col  = sum(loc_total(n,"collected") for n,_,_ in LOCS)
 grand_unp  = sum(loc_total(n,"unpaid")    for n,_,_ in LOCS)
 grand_tips = sum(loc_total(n,"tips")      for n,_,_ in LOCS)
 tot_dc = sum(counts[n].get("DAYCARE", {}).get("TOTAL",0) for n,_,_ in LOCS)
-today_counts = {name: {"daycare": counts[name].get("DAYCARE",{}).get("TOTAL",0), "boarding": counts[name].get("BOARDING",{}).get("TOTAL",0)} for name,_,_ in LOCS}
+# today_counts: use today's specific date key for accurate capacity utilization
+_today_key = "{:02d}/{:02d}/{}".format(today.month, today.day, today.year)
+today_counts = {name: {"daycare": counts[name].get("DAYCARE",{}).get(_today_key,0), "boarding": counts[name].get("BOARDING",{}).get(_today_key,0)} for name,_,_ in LOCS}
 tot_bo = sum(counts[n].get("BOARDING",{}).get("TOTAL",0) for n,_,_ in LOCS)
 tot_gr = sum(counts[n].get("GROOMING",{}).get("TOTAL",0) for n,_,_ in LOCS)
 
@@ -861,7 +863,7 @@ CSS = (
 ".alert-banner{margin:16px 36px;padding:12px 20px;border-radius:6px;font-size:0.85rem;font-weight:500;display:flex;align-items:center;gap:10px;}"
 ".alert-banner.warn{background:#fefce8;border:1px solid #fde047;color:#854d0e;}"
 ".alert-banner.good{background:#f0fdf4;border:1px solid #86efac;color:#166534;}"
-".gm-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:24px 36px;background:var(--bg);}"
+".gm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:24px 36px;background:var(--bg);}"
 ".gm-card{background:var(--surface);border-radius:8px;border:1px solid var(--border);overflow:hidden;}"
 ".gm-card-header{padding:14px 18px;border-bottom:1px solid var(--border);border-top:4px solid var(--accent);}"
 ".gm-card-name{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--accent);}"
