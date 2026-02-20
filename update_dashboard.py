@@ -1164,7 +1164,7 @@ def build_command_center_tab(loc_filter=None):
             past_rev = sum(revenue[name].get("{}/{}/{}".format(past_d.month,past_d.day,past_d.year),{}).values())
             if past_rev > 0: same_dow_revs.append(past_rev)
         avg_4wk = sum(same_dow_revs)/len(same_dow_revs) if same_dow_revs else 0
-        today_only = sum(revenue[name].get(adate("{}/{}/{}".format(today_d.month,today_d.day,today_d.year)),{}).values())
+        today_only = sum(revenue[name].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values())
         vs4 = ((today_only-avg_4wk)/avg_4wk*100) if avg_4wk>0 else 0
         retail_wtd = sum(retail[name]["daily"].get(adate(dk),0) for dk in DAY_KEYS)
         mem_wtd = loc_mem(name)
@@ -1203,8 +1203,8 @@ def build_command_center_tab(loc_filter=None):
             p=(v/mx*100) if mx>0 else 0
             col=cap_color(p)
             return "<span style=\"color:"+col+";font-weight:700\">"+str(v)+"/"+str(mx)+" ({:.0f}%)</span>".format(p)
-        snp_t = today_counts[name].get("snp",0)
-        snp_tm = tomorrow_counts[name].get("snp",0)
+        snp_t = scorecard[name].get("snp", 0)
+        snp_tm = 0  # SNP tomorrow not available from API
         snp_cap = cap.get("snp", 0)
         body=(
             "<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">{:.0f}%</div>".format(cap_pct(dc_t,cap["daycare"]))
@@ -1266,6 +1266,8 @@ def build_command_center_tab(loc_filter=None):
 
     # Summary totals bar
     total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
+    total_today = sum(sum(revenue[n].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
+    total_today = sum(sum(revenue[n].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
     total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"] for n,_,_ in LOCS)
     total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
     total_retail = sum(retail[n]["total"] for n,_,_ in LOCS)
@@ -1279,7 +1281,8 @@ def build_command_center_tab(loc_filter=None):
                 +"<div style=\"font-size:0.65rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);font-weight:600;margin-top:2px\">"+label+"</div>"
                 +"</div>")
     summary_bar = ("<div style=\"display:flex;align-items:center;justify-content:center;background:white;border-bottom:2px solid var(--border);padding:16px 36px;gap:0;\">"
-        +sbox("Total Revenue", fmt(total_rev), "#1a1a1a")
+        +sbox("Today Sales", fmt(total_today), "#1a1a1a")
+        +sbox("WTD Revenue", fmt(total_rev), "#1a1a1a")
         +sbox("vs Last Week", ("{:+.1f}%".format(total_wow)), wow_col)
         +sbox("Total Dogs", str(total_dogs))
         +sbox("Unpaid", fmt(total_unp), "#dc2626" if total_unp>0 else "#16a34a")
@@ -1287,7 +1290,7 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
-    return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">" + summary_bar + summary_bar
+    return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">" + summary_bar
         +section("💰","TODAY\'S REVENUE",today.strftime("%A, %B %d")+" · WTD vs Last Week")
         +grid(rev_cards)
         +section("🐾","CAPACITY","Today vs Tomorrow")
