@@ -1178,7 +1178,7 @@ def build_command_center_tab(loc_filter=None):
             spark += "<div style=\"height:{}px;width:8px;background:{};border-radius:3px 3px 0 0;display:inline-block;margin-right:2px\"></div>".format(h,clr)
         vs4col = "#16a34a" if vs4>=0 else "#dc2626"
         body = (
-            "<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">"+fmt(exp)+"</div>"
+            "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">REVENUE TODAY</div><div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">"+fmt(today_only)+"</div>"
             +row("vs Last Week WTD", pct_badge(exp,lw))
             +row("vs 4-Wk Same Day", "<span style=\"color:"+vs4col+"\">"+("{:+.1f}%".format(vs4))+"</span>")
             +row("Last Week Total", fmt(lw_full))
@@ -1229,11 +1229,18 @@ def build_command_center_tab(loc_filter=None):
         c=COLORS[name]; q=q1_data[name]
         bp=q.get("progress",0); bc="#16a34a" if bp>=90 else "#d97706" if bp>=70 else "#dc2626"
         gap=q.get("gap",0); daily=(gap/days_left_q1) if days_left_q1>0 else 0
-        bar="<div style=\"height:8px;background:#e2e2d8;border-radius:4px;overflow:hidden;margin:8px 0\"><div style=\"height:8px;background:"+bc+";width:{:.1f}%\"></div></div>".format(min(bp,100))
+        target_amt = q.get("target",0)
+        ty_qtd = q.get("ty_qtd",0)
+        bar="<div style=\"height:8px;background:#e2e2d8;border-radius:4px;overflow:hidden;margin:8px 0\"><div style=\"height:8px;background:"+bc+";width:{:.1f}%25;\"></div></div>".format(min(bp,100))
         body=(
-            "<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+bc+";margin-bottom:4px\">{:.1f}%</div>".format(bp)
-            +bar+row("Gap",fmt(gap))+row("Days Left",str(days_left_q1))+row("Daily Needed",fmt(daily))
-            +row("WTD Revenue",fmt(loc_total(name,"expected")))
+            "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">Q1 PROGRESS</div>"
+            +"<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+bc+";margin-bottom:4px\">{:.1f}%</div>".format(bp)
+            +bar
+            +row("Q1 Goal", fmt(target_amt) if target_amt>0 else "—")
+            +row("Revenue to Date", fmt(ty_qtd) if ty_qtd>0 else fmt(loc_total(name,"expected")))
+            +row("Gap to Goal", "<span style=\"color:"+bc+"\">"+fmt(gap)+"</span>")
+            +row("Daily Needed", "<span style=\"color:"+bc+"\">"+fmt(daily)+"</span>")
+            +row("Days Left", str(days_left_q1))
         )
         bon_cards += card(c, name, body)
 
