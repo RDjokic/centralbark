@@ -13,7 +13,7 @@ CAPACITY = {
     "Milwaukee Downtown": {"daycare": 100, "boarding": 100, "snp": 8},
     "Grayslake":          {"daycare": 105, "boarding": 105, "snp": 9},
     "Milwaukee Eastside": {"daycare": 100, "boarding": 100, "snp": 10},
-    "Mequon":             {"daycare": 115, "boarding": 115, "snp": 6},
+    "Mequon":             {"daycare": 115, "boarding": 11, "snp": 6},
 }
 def cap_pct(actual, cap):
     if cap == 0 or actual == 0: return 0
@@ -1180,7 +1180,6 @@ def build_command_center_tab(loc_filter=None):
         body = (
             "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">REVENUE TODAY</div><div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">"+fmt(today_only)+"</div>"
             +row("WTD Revenue", fmt(exp))
-            +row("WTD Revenue", fmt(exp))
             +row("vs Last Week WTD", pct_badge(exp,lw))
             +row("vs 4-Wk Same Day", "<span style=\"color:"+vs4col+"\">"+("{:+.1f}%".format(vs4))+"</span>")
             +row("Last Week Total", fmt(lw_full))
@@ -1204,9 +1203,9 @@ def build_command_center_tab(loc_filter=None):
             p=(v/mx*100) if mx>0 else 0
             col=cap_color(p)
             return "<span style=\"color:"+col+";font-weight:700\">"+str(v)+"/"+str(mx)+" ({:.0f}%)</span>".format(p)
-        snp_t = today_counts[name].get("stay_play",0)
-        snp_tm = tomorrow_counts[name].get("stay_play",0)
-        snp_cap = cap.get("stay_play", cap["daycare"])
+        snp_t = today_counts[name].get("snp",0)
+        snp_tm = tomorrow_counts[name].get("snp",0)
+        snp_cap = cap.get("snp", 0)
         body=(
             "<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">{:.0f}%</div>".format(cap_pct(dc_t,cap["daycare"]))
             +"<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;padding:4px 0\">TODAY</div>"
@@ -1287,30 +1286,7 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Retail WTD", fmt(total_retail))
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
-    total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
-    total_today = sum(sum(revenue[n].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
-    total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"] for n,_,_ in LOCS)
-    total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
-    total_retail = sum(retail[n]["total"] for n,_,_ in LOCS)
-    total_mem = sum(loc_mem(n) for n,_,_ in LOCS)
-    total_lw = sum(last_week_rev[n] for n,_,_ in LOCS)
-    total_wow = ((total_rev-total_lw)/total_lw*100) if total_lw>0 else 0
-    wow_col = "#16a34a" if total_wow>=0 else "#dc2626"
-    def sbox(label, val, color="var(--text)", last=False):
-        br = "" if last else "border-right:1px solid var(--border);"
-        return ("<div style=\"text-align:center;padding:12px 28px;"+br+"\">"
-                +"<div style=\"font-size:2rem;font-weight:800;font-family:'DM Mono',monospace;color:"+color+"\">"+val+"</div>"
-                +"<div style=\"font-size:0.75rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);font-weight:600;margin-top:4px\">"+label+"</div>"
-                +"</div>")
-    summary_bar = ("<div style=\"display:flex;align-items:center;justify-content:center;background:white;border-bottom:2px solid var(--border);padding:4px 0;\">"
-        +sbox("Today\'s Sales", fmt(total_today), "#1a1a1a")
-        +sbox("WTD Revenue", fmt(total_rev), "#1a1a1a")
-        +sbox("vs Last Week", ("{:+.1f}%".format(total_wow)), wow_col)
-        +sbox("Total Dogs", str(total_dogs))
-        +sbox("Unpaid", fmt(total_unp), "#dc2626" if total_unp>0 else "#16a34a")
-        +sbox("Retail WTD", fmt(total_retail))
-        +sbox("Membership WTD", fmt(total_mem), "var(--text)", True)
-        +"</div>")
+
     return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">" + summary_bar + summary_bar
         +section("💰","TODAY\'S REVENUE",today.strftime("%A, %B %d")+" · WTD vs Last Week")
         +grid(rev_cards)
