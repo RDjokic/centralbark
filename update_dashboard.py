@@ -652,6 +652,18 @@ for name, cid, bid in LOCS:
     log(f"  Scorecard {name}: DC={today_data['dc']} BO={today_data['bo']} GR={today_data['gr']} Retail={fmt(today_data['retail'])}")
 
 log("Scorecard data complete.")
+# ── TOMORROW DATA PULL ─────────────────────────────────────────────────────────
+log("Pulling tomorrow's bookings...")
+tomorrow_d = today_d + _td(days=1)
+tomorrow_counts = {}
+for name, cid, bid in LOCS:
+    dc = count_day(cid, bid, tomorrow_d, "reports_daycare_appointment_list")
+    bo = count_day(cid, bid, tomorrow_d, "reports_boarding_appointment_list")
+    tomorrow_counts[name] = {"daycare": dc, "boarding": bo}
+    log(f"  Tomorrow {name}: DC={dc} BO={bo}")
+log("Tomorrow data complete.")
+
+
 
 # ── BUILD SCORECARD HTML ───────────────────────────────────────────────────────
 def delta_badge(today_val, bench_val, is_money=False):
@@ -920,6 +932,7 @@ CSS = (
 ".labor-stat .v{font-family:'DM Mono',sans-serif;font-size:1.4rem;font-weight:700;}"
 ".labor-stat .l{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}"
 ".cap-grid{display:flex;flex-direction:column;gap:0;}.cap-row{display:grid;grid-template-columns:180px repeat(3,1fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}.cap-row:last-child{border-bottom:none;}.cap-name{font-size:0.82rem;font-weight:600;}.cap-metric{display:flex;flex-direction:column;gap:3px;}.cap-lbl{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;}.cap-bar-wrap{height:7px;background:#e2e2d8;border-radius:4px;overflow:hidden;}.cap-bar-fill{height:7px;border-radius:4px;}.cap-val{font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:600;}"
+".cc-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;padding:24px 36px;background:var(--bg);}.cc-card{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;min-width:0;}.cc-card-header{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}.cc-card-name{font-size:0.78rem;font-weight:700;}.cc-card-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}.cc-metric{display:flex;justify-content:space-between;align-items:baseline;}.cc-metric-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;}.cc-metric-val{font-family:'DM Mono',monospace;font-size:0.88rem;font-weight:700;}.cc-delta{font-size:0.68rem;font-family:'DM Mono',monospace;margin-left:4px;}.cc-section-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;padding:0 36px 24px;}.cc-mini{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;min-width:0;}.cc-mini-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:6px;}.cc-mini-val{font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;}.cc-mini-sub{font-size:0.68rem;color:var(--muted);margin-top:2px;}.cc-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-size:0.75rem;}.cc-row:last-child{border-bottom:none;}.cc-row-label{color:var(--muted);}.cc-row-val{font-family:'DM Mono',monospace;font-weight:600;}.cc-bonus-bar{height:6px;background:#e2e2d8;border-radius:3px;overflow:hidden;margin:4px 0;}.cc-bonus-fill{height:6px;border-radius:3px;}.sparkbar{display:inline-flex;align-items:flex-end;gap:2px;height:24px;vertical-align:middle;margin-left:6px;}.sparkbar span{width:6px;border-radius:2px 2px 0 0;display:inline-block;}.cc-tomorrow{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;}.cc-tmr-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:0 36px 20px;}.green{color:var(--green);} .red{color:var(--red);} .yellow{color:#d97706;}"
 )
 
 unp_color = "red" if grand_unp > 0 else "green"
@@ -1101,6 +1114,167 @@ def build_capacity_section(loc_filter=None):
         "<div class=\"cap-grid\">"+rows+"</div>"
         "<div class=\"note\">Green &lt;75% &nbsp;&#183;&nbsp; Yellow 75&#8211;90% &nbsp;&#183;&nbsp; Red &ge;90%</div>"
         "</div>"
+    )
+
+def build_command_center_tab(loc_filter=None):
+    locs = [n for n,_,_ in LOCS] if loc_filter is None else [loc_filter]
+
+    # ── Revenue Cards ──────────────────────────────────────────────────────────
+    rev_cards = ""
+    for name in locs:
+        c   = COLORS[name]
+        sc  = scorecard[name]
+        td  = sc["today"];  lw = sc["last_week"]; av = sc["avg"]
+        exp = loc_total(name,"expected")
+        lw_rev  = last_week_rev[name]
+        wow     = ((exp - lw_rev) / lw_rev * 100) if lw_rev > 0 else 0
+        wow_cls = "green" if wow >= 0 else "red"
+        wow_str = ("+" if wow >= 0 else "") + "{:.1f}%".format(wow)
+
+        # 5-day sparkline using daily revenue data
+        spark = ""
+        for dk in DAY_KEYS[:today.weekday()+2]:
+            day_rev = sum(revenue[name].get(adate(dk),{}).values())
+            h = max(4, min(24, int(day_rev / 300))) if day_rev > 0 else 2
+            clr = "#16a34a" if day_rev > 0 else "#e2e2d8"
+            spark += "<span style=\"height:{}px;background:{};\"></span>".format(h, clr)
+
+        # Avg comparison
+        avg_rev = sum(sum(revenue[name].get(adate(dk),{}).values()) for dk in DAY_KEYS) / max(1, today.weekday()+1)
+        avg_lw  = lw_rev / 7 if lw_rev > 0 else 0
+        vs_avg  = ((avg_rev - avg_lw) / avg_lw * 100) if avg_lw > 0 else 0
+        va_cls  = "green" if vs_avg >= 0 else "red"
+        va_str  = ("+" if vs_avg >= 0 else "") + "{:.1f}%".format(vs_avg)
+
+        rev_cards += (
+            "<div class=\"cc-card\">"
+            "<div class=\"cc-card-header\"><span class=\"dot\" style=\"background:"+c+";\"></span>"
+            "<span class=\"cc-card-name\">"+name+"</span></div>"
+            "<div class=\"cc-card-body\">"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Revenue Today</span>"
+            "<span class=\"cc-metric-val\">"+fmt(exp)+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">vs Last Week</span>"
+            "<span class=\"cc-delta "+wow_cls+"\">"+wow_str+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">WTD</span>"
+            "<span class=\"cc-metric-val\">"+fmt(lw_rev)+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">vs LW Avg</span>"
+            "<span class=\"cc-delta "+va_cls+"\">"+va_str+"</span></div>"
+            "<div style=\"margin-top:4px;\"><div class=\"sparkbar\">"+spark+"</div></div>"
+            "</div></div>"
+        )
+
+    # ── Capacity Section ───────────────────────────────────────────────────────
+    cap_rows = ""
+    for name in locs:
+        c   = COLORS[name]
+        cap = CAPACITY[name]
+        dc_t = today_counts[name]["daycare"]
+        bo_t = today_counts[name]["boarding"]
+        dc_tm = tomorrow_counts[name]["daycare"]
+        bo_tm = tomorrow_counts[name]["boarding"]
+        dc_pct_t  = cap_pct(dc_t,  cap["daycare"])
+        dc_pct_tm = cap_pct(dc_tm, cap["daycare"])
+        bo_pct_t  = cap_pct(bo_t,  cap["boarding"])
+        bo_pct_tm = cap_pct(bo_tm, cap["boarding"])
+        cap_rows += (
+            "<div class=\"cc-card\">"
+            "<div class=\"cc-card-header\"><span class=\"dot\" style=\"background:"+c+";\"></span>"
+            "<span class=\"cc-card-name\">"+name+"</span></div>"
+            "<div class=\"cc-card-body\">"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">DC Today</span>"
+            "<span class=\"cc-metric-val\" style=\"color:"+cap_color(dc_pct_t)+"\">"+str(dc_t)+"/"+str(cap["daycare"])+" ("+"{:.0f}".format(dc_pct_t)+"%)</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">DC Tomorrow</span>"
+            "<span class=\"cc-metric-val\" style=\"color:"+cap_color(dc_pct_tm)+"\">"+str(dc_tm)+"/"+str(cap["daycare"])+" ("+"{:.0f}".format(dc_pct_tm)+"%)</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Boarding Today</span>"
+            "<span class=\"cc-metric-val\" style=\"color:"+cap_color(bo_pct_t)+"\">"+str(bo_t)+"/"+str(cap["boarding"])+" ("+"{:.0f}".format(bo_pct_t)+"%)</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Boarding Tomorrow</span>"
+            "<span class=\"cc-metric-val\" style=\"color:"+cap_color(bo_pct_tm)+"\">"+str(bo_tm)+"/"+str(cap["boarding"])+" ("+"{:.0f}".format(bo_pct_tm)+"%)</span></div>"
+            "</div></div>"
+        )
+
+    # ── Labor Section ──────────────────────────────────────────────────────────
+    labor_rows = ""
+    for name in locs:
+        c        = COLORS[name]
+        lp       = labor_pct(name)
+        lp_cls   = "green" if lp <= 30 else "yellow" if lp <= 35 else "red"
+        lp_str   = "{:.1f}%".format(lp) if lp > 0 else "—"
+        wtd_str  = lp_str
+        labor_rows += (
+            "<div class=\"cc-card\">"
+            "<div class=\"cc-card-header\"><span class=\"dot\" style=\"background:"+c+";\"></span>"
+            "<span class=\"cc-card-name\">"+name+"</span></div>"
+            "<div class=\"cc-card-body\">"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Today Labor %</span>"
+            "<span class=\"cc-metric-val "+lp_cls+"\">"+lp_str+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">WTD Labor %</span>"
+            "<span class=\"cc-metric-val "+lp_cls+"\">"+wtd_str+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Tomorrow</span>"
+            "<span class=\"cc-metric-val\" style=\"color:var(--muted)\">— <span style=\"font-size:0.65rem;\">(Homebase soon)</span></span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Target</span>"
+            "<span class=\"cc-metric-val\">"+"{:.0f}".format(LABOR_TARGET_PCT*100)+"%</span></div>"
+            "</div></div>"
+        )
+
+    # ── Bonus Section ──────────────────────────────────────────────────────────
+    bonus_rows = ""
+    for name in locs:
+        c  = COLORS[name]
+        q  = q1_data[name]
+        bp = q["progress"]
+        bc = "#16a34a" if bp >= 90 else "#d97706" if bp >= 70 else "#dc2626"
+        bonus_rows += (
+            "<div class=\"cc-card\">"
+            "<div class=\"cc-card-header\"><span class=\"dot\" style=\"background:"+c+";\"></span>"
+            "<span class=\"cc-card-name\">"+name+"</span></div>"
+            "<div class=\"cc-card-body\">"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Q1 Progress</span>"
+            "<span class=\"cc-metric-val\" style=\"color:"+bc+"\">"+"{:.1f}".format(bp)+"%</span></div>"
+            "<div class=\"cc-bonus-bar\"><div class=\"cc-bonus-fill\" style=\"width:"+"{:.1f}".format(min(bp,100))+"%25;background:"+bc+";\"></div></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Gap</span>"
+            "<span class=\"cc-metric-val\">"+fmt(q["gap"])+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Days Left</span>"
+            "<span class=\"cc-metric-val\">"+str(days_left_q1)+"</span></div>"
+            "</div></div>"
+        )
+
+    # ── Growth Pulse ───────────────────────────────────────────────────────────
+    growth_rows = ""
+    for name in locs:
+        c  = COLORS[name]
+        cl = clients[name]
+        new_pct = (cl["new"] / cl["total"] * 100) if cl["total"] > 0 else 0
+        growth_rows += (
+            "<div class=\"cc-card\">"
+            "<div class=\"cc-card-header\"><span class=\"dot\" style=\"background:"+c+";\"></span>"
+            "<span class=\"cc-card-name\">"+name+"</span></div>"
+            "<div class=\"cc-card-body\">"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">New Clients WTD</span>"
+            "<span class=\"cc-metric-val green\">"+str(cl["new"])+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Total Clients WTD</span>"
+            "<span class=\"cc-metric-val\">"+str(cl["total"])+"</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">New Client Rate</span>"
+            "<span class=\"cc-metric-val\">"+"{:.1f}".format(new_pct)+"%</span></div>"
+            "<div class=\"cc-metric\"><span class=\"cc-metric-label\">Existing Clients</span>"
+            "<span class=\"cc-metric-val\">"+str(cl["existing"])+"</span></div>"
+            "</div></div>"
+        )
+
+    def section(title, grid_html, subtitle=""):
+        sub = "<div style=\"font-size:0.72rem;color:var(--muted);margin-top:2px;\">"+subtitle+"</div>" if subtitle else ""
+        return (
+            "<div class=\"section-title\" style=\"padding:20px 36px 8px;\">"+title+sub+"</div>"
+            "<div class=\"cc-grid\">"+grid_html+"</div>"
+        )
+
+    return (
+        "<div style=\"background:var(--bg);min-height:100vh;\">"
+        + section("Today\'s Revenue", rev_cards, today.strftime("%A, %B %d"))
+        + section("Capacity", cap_rows, "Today vs Tomorrow")
+        + section("Labor", labor_rows, "Today % &nbsp;&#183;&nbsp; WTD %")
+        + section("Q1 Bonus Tracker", bonus_rows, str(days_left_q1)+" days remaining in Q1")
+        + section("Growth Pulse", growth_rows, "Week to date")
+        + "</div>"
     )
 
 def build_exec_tab(loc_filter=None):
@@ -1435,7 +1609,10 @@ def build_full_html(tabs, loc_filter=None, pin="0000", title="Central Bark Dashb
     for tab in tabs:
         active = "active" if first else ""
         first = False
-        if tab == "exec":
+        if tab == "cc":
+            tab_buttons += f"<div class=\"tab {active}\" onclick=\"showTab('tab-cc',this)\">Command Center</div>"
+            tab_contents += f"<div id=\"tab-cc\" class=\"tab-content {active}\">" + build_command_center_tab(loc_filter) + "</div>"
+        elif tab == "exec":
             tab_buttons += f"<div class=\"tab {active}\" onclick=\"showTab(\'tab-exec\',this)\">Executive View</div>"
             tab_contents += f"<div id=\"tab-exec\" class=\"tab-content {active}\">" + build_exec_tab(loc_filter) + "</div>"
         elif tab == "full":
@@ -1458,7 +1635,7 @@ REPO = Path.home() / "Desktop" / "centralbark"
 log("Generating dashboard files...")
 
 # Owner - all tabs, all locations
-owner_html = build_full_html(["exec","full","gm"], loc_filter=None, pin=PINS["owner"], title="Central Bark - Owner")
+owner_html = build_full_html(["cc","exec","full"], loc_filter=None, pin=PINS["owner"], title="Central Bark - Owner")
 OUTPUT.write_text(owner_html)
 try: OUTPUT2.write_text(owner_html)
 except: pass
@@ -1466,7 +1643,7 @@ except: pass
 log("  Generated index.html (owner)")
 
 # District Manager - full + gm, all locations
-dm_html = build_full_html(["full","gm"], loc_filter=None, pin=PINS["dm"], title="Central Bark - District Manager")
+dm_html = build_full_html(["cc","full"], loc_filter=None, pin=PINS["dm"], title="Central Bark - District Manager")
 (REPO / "dm.html").write_text(dm_html)
 log("  Generated dm.html (district manager)")
 
@@ -1479,7 +1656,7 @@ GM_FILES = {
     "Mequon":             "gm-mequon.html",
 }
 for name, filename in GM_FILES.items():
-    gm_html = build_full_html(["full","gm"], loc_filter=name, pin=PINS[name], title=f"Central Bark - {name}")
+    gm_html = build_full_html(["cc","full"], loc_filter=name, pin=PINS[name], title=f"Central Bark - {name}")
     (REPO / filename).write_text(gm_html)
     log(f"  Generated {filename}")
 
