@@ -1,4 +1,5 @@
-API  = "NWY2YmFkNWUtNmE5ZC00MmNlLTk5YzctZWY5OGY1ZjlkMjM3"
+import os
+API  = os.environ.get("MOEGO_API", "NWY2YmFkNWUtNmE5ZC00MmNlLTk5YzctZWY5OGY1ZjlkMjM3")
 BASE = "https://openapi.moego.pet"
 LOCS = [
     ("Wauwatosa",          "copyXor", "bizkVbJ"),
@@ -1156,15 +1157,18 @@ def build_command_center_tab(loc_filter=None):
         dc_t = today_counts[name]["daycare"]; bo_t = today_counts[name]["boarding"]
         dogs = dc_t + bo_t
         today_rev = sum(sum(revenue[name].get(adate(dk),{}).values()) for dk in DAY_KEYS[:today.weekday()+1])
-        avg_ticket = (today_rev/dogs) if dogs>0 else 0
         # 4-week avg: average revenue on this same day of week over last 4 weeks
         same_dow_revs = []
         for wk in range(1,5):
             past_d = today_d - __import__("datetime").timedelta(weeks=wk)
-            past_rev = sum(revenue[name].get("{}/{}/{}".format(past_d.month,past_d.day,past_d.year),{}).values())
+            past_rev = sum(revenue[name].get("{:02d}/{:02d}/{}".format(past_d.month,past_d.day,past_d.year),{}).values())
             if past_rev > 0: same_dow_revs.append(past_rev)
         avg_4wk = sum(same_dow_revs)/len(same_dow_revs) if same_dow_revs else 0
-        today_only = sum(revenue[name].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values())
+        today_only = sum(revenue[name].get("{:02d}/{:02d}/{}".format(today_d.month,today_d.day,today_d.year),{}).values())
+        avg_ticket = (today_only/dogs) if dogs>0 else 0
+        avg_ticket = (today_only/dogs) if dogs>0 else 0
+        avg_ticket = (today_only/dogs) if dogs>0 else 0
+        avg_ticket = (today_only/dogs) if dogs>0 else 0
         vs4 = ((today_only-avg_4wk)/avg_4wk*100) if avg_4wk>0 else 0
         retail_wtd = sum(retail[name]["daily"].get(adate(dk),0) for dk in DAY_KEYS)
         mem_wtd = loc_mem(name)
@@ -1266,9 +1270,8 @@ def build_command_center_tab(loc_filter=None):
 
     # Summary totals bar
     total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
-    total_today = sum(sum(revenue[n].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
-    total_today = sum(sum(revenue[n].get("{}/{}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
-    total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"] for n,_,_ in LOCS)
+    total_today = sum(sum(revenue[n].get("{:02d}/{:02d}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
+    total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"]+scorecard[n].get("gr",0) for n,_,_ in LOCS)
     total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
     total_retail = sum(retail[n]["total"] for n,_,_ in LOCS)
     total_mem = sum(loc_mem(n) for n,_,_ in LOCS)

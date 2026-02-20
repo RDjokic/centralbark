@@ -1,0 +1,25 @@
+name: Update Dashboard
+on:
+  schedule:
+    - cron: '30 0 * * *'  # 7:30 PM CST = 00:30 UTC
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Run dashboard update
+        env:
+          MOEGO_API: ${{ secrets.MOEGO_API_KEY }}
+        run: python3 update_dashboard.py
+      - name: Commit and push
+        run: |
+          git config user.email "dashboard@centralbark.com"
+          git config user.name "Dashboard Bot"
+          git add -A
+          git diff --staged --quiet || git commit -m "dashboard update $(date)"
+          git push
