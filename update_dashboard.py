@@ -1161,14 +1161,14 @@ def build_command_center_tab(loc_filter=None):
         same_dow_revs = []
         for wk in range(1,5):
             past_d = today_d - __import__("datetime").timedelta(weeks=wk)
-            past_rev = sum(revenue[name].get("{:02d}/{:02d}/{}".format(past_d.month,past_d.day,past_d.year),{}).values())
+            past_key = "{:02d}/{:02d}/{}".format(past_d.month,past_d.day,past_d.year)
+            past_rev = sum(scorecard[name].get("daily_rev",{}).get(past_key,{}).values()) if isinstance(scorecard[name].get("daily_rev",{}).get(past_key),dict) else scorecard[name].get("daily_rev",{}).get(past_key,0)
+            if past_rev == 0: past_rev = sum(revenue[name].get(past_key,{}).values())
             if past_rev > 0: same_dow_revs.append(past_rev)
         avg_4wk = sum(same_dow_revs)/len(same_dow_revs) if same_dow_revs else 0
         today_only = sum(revenue[name].get("{:02d}/{:02d}/{}".format(today_d.month,today_d.day,today_d.year),{}).values())
         avg_ticket = (today_only/dogs) if dogs>0 else 0
-        avg_ticket = (today_only/dogs) if dogs>0 else 0
-        avg_ticket = (today_only/dogs) if dogs>0 else 0
-        avg_ticket = (today_only/dogs) if dogs>0 else 0
+
         vs4 = ((today_only-avg_4wk)/avg_4wk*100) if avg_4wk>0 else 0
         retail_wtd = sum(retail[name]["daily"].get(adate(dk),0) for dk in DAY_KEYS)
         mem_wtd = loc_mem(name)
@@ -1182,7 +1182,11 @@ def build_command_center_tab(loc_filter=None):
             spark += "<div style=\"height:{}px;width:8px;background:{};border-radius:3px 3px 0 0;display:inline-block;margin-right:2px\"></div>".format(h,clr)
         vs4col = "#16a34a" if vs4>=0 else "#dc2626"
         body = (
-            "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">REVENUE TODAY</div><div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">"+fmt(today_only)+"</div>"
+            "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">REVENUE TODAY</div>"
+            +"<div style=\"display:flex;align-items:baseline;gap:12px;margin-bottom:8px\">"
+            +"<span style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(today_only)+"</span>"
+            +"<span style=\"font-size:0.95rem;font-weight:800;font-family:'DM Mono',monospace;color:#555\"> WTD "+fmt(exp)+"</span>"
+            +"</div>"
             +row("WTD Revenue", fmt(exp))
             +row("vs Last Week WTD", pct_badge(exp,lw))
             +row("vs 4-Wk Same Day", "<span style=\"color:"+vs4col+"\">"+("{:+.1f}%".format(vs4))+"</span>")
@@ -1271,7 +1275,7 @@ def build_command_center_tab(loc_filter=None):
     # Summary totals bar
     total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
     total_today = sum(sum(revenue[n].get("{:02d}/{:02d}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
-    total_dogs = sum(today_counts[n]["daycare"]+today_counts[n]["boarding"]+scorecard[n].get("gr",0) for n,_,_ in LOCS)
+    total_dogs = sum(counts[n].get("DAYCARE",{}).get("TOTAL",0)+counts[n].get("BOARDING",{}).get("TOTAL",0) for n,_,_ in LOCS)
     total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
     total_retail = sum(retail[n]["total"] for n,_,_ in LOCS)
     total_mem = sum(loc_mem(n) for n,_,_ in LOCS)
