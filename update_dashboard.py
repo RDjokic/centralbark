@@ -1051,6 +1051,28 @@ window.onload = function() {{
   }}
 }};
 document.addEventListener("keydown", function(e) {{ if (e.key === "Enter") tryPin(); }});
+
+function applyMobile() {{
+  var w = window.innerWidth;
+  var isMobile = w < 650;
+  var grids = document.querySelectorAll('.cc-grid,.cc-section-grid,.cc-tmr-grid,.exec-grid,.gm-grid');
+  grids.forEach(function(g) {{
+    g.style.gridTemplateColumns = isMobile ? '1fr' : '';
+    g.style.padding = isMobile ? '10px' : '';
+    g.style.gap = isMobile ? '10px' : '';
+  }});
+  var bars = document.querySelectorAll('.summary,.exec-summary,.labor-bar');
+  bars.forEach(function(b) {{
+    b.style.gridTemplateColumns = isMobile ? 'repeat(2,1fr)' : '';
+    b.style.flexWrap = isMobile ? 'wrap' : '';
+  }});
+  var cards = document.querySelectorAll('.cards');
+  cards.forEach(function(c) {{
+    c.style.gridTemplateColumns = isMobile ? '1fr' : '';
+  }});
+}}
+window.addEventListener('resize', applyMobile);
+window.addEventListener('load', applyMobile);
 function showTab(id, el) {{
   document.querySelectorAll(".tab-content").forEach(function(t) {{ t.classList.remove("active"); }});
   document.querySelectorAll(".tab").forEach(function(t) {{ t.classList.remove("active"); }});
