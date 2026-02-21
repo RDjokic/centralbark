@@ -146,6 +146,7 @@ week_sun = (today - timedelta(days=days_since_sun)).replace(hour=0,minute=0,seco
 week_sat = week_sun + timedelta(days=6,hours=23,minutes=59,seconds=59)
 START = week_sun.strftime("%Y-%m-%dT%H:%M:%SZ")
 END   = week_sat.strftime("%Y-%m-%dT%H:%M:%SZ")
+HIST_START = (week_sun - __import__("datetime").timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
 last_sun   = week_sun - timedelta(days=7)
 last_sat   = week_sun - timedelta(seconds=1)
 LAST_START = last_sun.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -183,7 +184,7 @@ revenue, totals, counts = {}, {}, {}
 for name, cid, bid in LOCS:
     log("Pulling " + name + "...")
     revenue[name], totals[name], counts[name] = {}, {}, {}
-    d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_daily_sales","queryPeriod":{"startTime":START,"endTime":END},"groupByFieldKeys":["checkout_date","care_type"]}})
+    d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_daily_sales","queryPeriod":{"startTime":HIST_START,"endTime":END},"groupByFieldKeys":["checkout_date","care_type"]}})
     for row in d.get("tableData",{}).get("rows",[]):
         rd   = row["data"]
         date = rd.get("checkout_date",{}).get("value",{}).get("string","")
@@ -1185,14 +1186,14 @@ def build_command_center_tab(loc_filter=None):
             "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">REVENUE TODAY</div>"
             +"<div style=\"display:flex;align-items:baseline;gap:12px;margin-bottom:8px\">"
             +"<span style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(today_only)+"</span>"
-            +"<span style=\"font-size:0.95rem;font-weight:800;font-family:'DM Mono',monospace;color:#555\"> WTD "+fmt(exp)+"</span>"
+            +"<span style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\"> / "+fmt(exp)+"</span>"
             +"</div>"
             +row("WTD Revenue", fmt(exp))
             +row("vs Last Week WTD", pct_badge(exp,lw))
             +row("vs 4-Wk Same Day", "<span style=\"color:"+vs4col+"\">"+("{:+.1f}%".format(vs4))+"</span>")
             +row("Last Week Total", fmt(lw_full))
             +"<div style=\"height:6px\"></div>"
-            +row("Dogs Today", str(dogs)+" (DC:"+str(dc_t)+" BO:"+str(bo_t)+")")
+            +row("Dogs Today", str(dogs))
             +row("Avg Ticket/Dog", fmt(avg_ticket) if avg_ticket>0 else "—")
             +row("Retail WTD", fmt(retail_wtd))
             +row("Membership WTD", fmt(mem_wtd))
