@@ -161,7 +161,7 @@ def adate(dk):
     return "{:02d}/{:02d}/{}".format(int(p[0]), int(p[1]), p[2])
 
 # Archive last week's dashboard if it exists and is a different week
-ARCHIVE = Path.home() / "Desktop" / "CentralBark" / "Archive"
+ARCHIVE = Path(__file__).parent / "Archive"
 ARCHIVE.mkdir(exist_ok=True)
 if OUTPUT.exists():
     import re, shutil
