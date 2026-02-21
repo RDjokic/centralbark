@@ -289,7 +289,7 @@ def loc_total(name, field):
     return sum(v[field] for v in totals[name].values())
 
 def loc_mem(name):
-    return sum(d.get("Non-service sales",0) for d in revenue[name].values())
+    return sum(revenue[name].get(adate(dk),{}).get("Non-service sales",0) for dk in DAY_KEYS)
 
 grand_exp  = sum(loc_total(n,"expected")  for n,_,_ in LOCS)
 grand_col  = sum(loc_total(n,"collected") for n,_,_ in LOCS)
