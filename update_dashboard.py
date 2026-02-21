@@ -837,7 +837,7 @@ CSS = (
 ".sstat{padding:20px 24px;text-align:center;border-right:1px solid var(--border);}.sstat:last-child{border-right:none;}"
 ".sstat .v{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:1px;color:#1a1a1a;}"
 ".sstat .l{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;font-weight:500;}"
-".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));background:var(--border);border-bottom:1px solid var(--border);gap:1px;}"
+".cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));background:var(--border);border-bottom:1px solid var(--border);gap:1px;}"
 ".card{background:var(--surface);padding:22px 18px;position:relative;}"
 ".card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent);}"
 ".card-name{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--accent);margin-bottom:10px;}"
@@ -864,7 +864,7 @@ CSS = (
 ".note{margin-top:12px;font-size:0.74rem;color:var(--muted);font-family:'DM Mono',monospace;background:var(--surface2);padding:8px 12px;border-radius:4px;border-left:3px solid var(--border);}"
 ".tag{display:inline-block;font-size:0.7rem;padding:2px 7px;border-radius:3px;margin-left:4px;vertical-align:middle;font-weight:500;}"
 ".tag.dc{background:#fff3e8;color:#c2410c;}.tag.bo{background:#f3e8ff;color:#7e22ce;}.tag.gr{background:#e8f0ff;color:#1d4ed8;}.tag.ms{background:#e8f8ee;color:#15803d;}"
-".exec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:8px;background:var(--bg);}"
+".exec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:8px;background:var(--bg);}"
 ".exec-card{background:var(--surface);border-radius:8px;padding:20px;border:1px solid var(--border);border-top:4px solid var(--accent);}"
 ".exec-card-name{font-family:'Bebas Neue',sans-serif;font-size:0.9rem;letter-spacing:1.5px;color:var(--accent);margin-bottom:12px;}"
 ".exec-card-rev{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:#1a1a1a;line-height:1;}"
@@ -882,7 +882,7 @@ CSS = (
 ".alert-banner{margin:16px 36px;padding:12px 20px;border-radius:6px;font-size:0.85rem;font-weight:500;display:flex;align-items:center;gap:10px;}"
 ".alert-banner.warn{background:#fefce8;border:1px solid #fde047;color:#854d0e;}"
 ".alert-banner.good{background:#f0fdf4;border:1px solid #86efac;color:#166534;}"
-".gm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:8px;background:var(--bg);}"
+".gm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:8px;background:var(--bg);}"
 ".gm-card{background:var(--surface);border-radius:8px;border:1px solid var(--border);overflow:hidden;min-width:0;}"
 ".gm-card-header{padding:14px 18px;border-bottom:1px solid var(--border);border-top:4px solid var(--accent);}"
 ".gm-card-name{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--accent);}"
@@ -934,7 +934,7 @@ CSS = (
 ".labor-stat .v{font-family:'DM Mono',sans-serif;font-size:1.4rem;font-weight:700;}"
 ".labor-stat .l{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}"
 ".cap-grid{display:flex;flex-direction:column;gap:0;}.cap-row{display:grid;grid-template-columns:180px repeat(3,1fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}.cap-row:last-child{border-bottom:none;}.cap-name{font-size:0.82rem;font-weight:600;}.cap-metric{display:flex;flex-direction:column;gap:3px;}.cap-lbl{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;}.cap-bar-wrap{height:7px;background:#e2e2d8;border-radius:4px;overflow:hidden;}.cap-bar-fill{height:7px;border-radius:4px;}.cap-val{font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:600;}"
-".cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:8px;background:var(--bg);}.cc-card{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;min-width:0;}.cc-card-header{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}.cc-card-name{font-size:0.78rem;font-weight:700;}.cc-card-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}.cc-metric{display:flex;justify-content:space-between;align-items:baseline;}.cc-metric-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;}.cc-metric-val{font-family:'DM Mono',monospace;font-size:0.88rem;font-weight:700;}.cc-delta{font-size:0.68rem;font-family:'DM Mono',monospace;margin-left:4px;}.cc-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:0 8px 8px;}.cc-mini{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;min-width:0;}.cc-mini-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:6px;}.cc-mini-val{font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;}.cc-mini-sub{font-size:0.68rem;color:var(--muted);margin-top:2px;}.cc-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-size:0.75rem;}.cc-row:last-child{border-bottom:none;}.cc-row-label{color:var(--muted);}.cc-row-val{font-family:'DM Mono',monospace;font-weight:600;}.cc-bonus-bar{height:6px;background:#e2e2d8;border-radius:3px;overflow:hidden;margin:4px 0;}.cc-bonus-fill{height:6px;border-radius:3px;}.sparkbar{display:inline-flex;align-items:flex-end;gap:2px;height:24px;vertical-align:middle;margin-left:6px;}.sparkbar span{width:6px;border-radius:2px 2px 0 0;display:inline-block;}.cc-tomorrow{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;}.cc-tmr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:0 8px 8px;}.green{color:var(--green);} .red{color:var(--red);} .yellow{color:#d97706;}"
+".cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:8px;background:var(--bg);}.cc-card{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;min-width:0;}.cc-card-header{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}.cc-card-name{font-size:0.78rem;font-weight:700;}.cc-card-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}.cc-metric{display:flex;justify-content:space-between;align-items:baseline;}.cc-metric-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;}.cc-metric-val{font-family:'DM Mono',monospace;font-size:0.88rem;font-weight:700;}.cc-delta{font-size:0.68rem;font-family:'DM Mono',monospace;margin-left:4px;}.cc-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:0 8px 8px;}.cc-mini{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;min-width:0;}.cc-mini-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:6px;}.cc-mini-val{font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;}.cc-mini-sub{font-size:0.68rem;color:var(--muted);margin-top:2px;}.cc-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-size:0.75rem;}.cc-row:last-child{border-bottom:none;}.cc-row-label{color:var(--muted);}.cc-row-val{font-family:'DM Mono',monospace;font-weight:600;}.cc-bonus-bar{height:6px;background:#e2e2d8;border-radius:3px;overflow:hidden;margin:4px 0;}.cc-bonus-fill{height:6px;border-radius:3px;}.sparkbar{display:inline-flex;align-items:flex-end;gap:2px;height:24px;vertical-align:middle;margin-left:6px;}.sparkbar span{width:6px;border-radius:2px 2px 0 0;display:inline-block;}.cc-tomorrow{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;}.cc-tmr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:0 8px 8px;}.green{color:var(--green);} .red{color:var(--red);} .yellow{color:#d97706;}"
 )
 
 unp_color = "red" if grand_unp > 0 else "green"
@@ -1144,7 +1144,7 @@ def build_command_center_tab(loc_filter=None):
                 +name+"</div>"+body+"</div></div>")
 
     def grid(cards):
-        return "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding:0 16px 28px\">"+cards+"</div>"
+        return "<div style=\"display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:0 36px 28px\">"+cards+"</div>"
 
     def section(icon, title, sub):
         return ("<div style=\"padding:28px 36px 10px;\"><div style=\"font-size:1rem;font-weight:800\">"
