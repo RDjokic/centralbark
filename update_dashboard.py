@@ -203,6 +203,22 @@ for name, cid, bid in LOCS:
         counts[name][label] = {"TOTAL": total}
         counts[name][label].update(by_day)
         log("  " + label + ": " + str(total))
+    # SNP from boarding list - filter by service containing SNP
+    snp_rows = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_boarding_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
+    snp_by_day = {}
+    snp_total = 0
+    for row in snp_rows.get("tableData",{}).get("rows",[]):
+        rd = row.get("data",{})
+        service = str(rd.get("service_type",rd.get("service",rd.get("type",{}))).get("value",{}).get("string","")).upper()
+        lodging = str(rd.get("lodgings",rd.get("lodging_type",rd.get("lodging",{}))).get("value",{}).get("string","")).upper()
+        combined = service + " " + lodging
+        if "SNP" in combined or "STAY" in combined or "PLAY" in combined:
+            snp_total += 1
+            date_val = rd.get("appointment_start_date",{}).get("value",{}).get("string","")
+            if date_val: snp_by_day[date_val] = snp_by_day.get(date_val,0) + 1
+    counts[name]["SNP"] = {"TOTAL": snp_total}
+    counts[name]["SNP"].update(snp_by_day)
+    log("  SNP: " + str(snp_total))
 
 log("Pulling last week + clients + boarding nights...")
 
@@ -303,7 +319,7 @@ _today_key2  = "{}/{}/{}".format(today.month, today.day, today.year)
 def _get_today(name, svc):
     d = counts[name].get(svc, {})
     return d.get(_today_key, d.get(_today_key2, 0))
-today_counts = {name: {"daycare": _get_today(name,"DAYCARE"), "boarding": _get_today(name,"BOARDING")} for name,_,_ in LOCS}
+today_counts = {name: {"daycare": _get_today(name,"DAYCARE"), "boarding": _get_today(name,"BOARDING"), "snp": _get_today(name,"SNP")} for name,_,_ in LOCS}
 tot_bo = sum(counts[n].get("BOARDING",{}).get("TOTAL",0) for n,_,_ in LOCS)
 tot_gr = sum(counts[n].get("GROOMING",{}).get("TOTAL",0) for n,_,_ in LOCS)
 
@@ -661,7 +677,8 @@ tomorrow_counts = {}
 for name, cid, bid in LOCS:
     dc = count_day(cid, bid, tomorrow_d, "reports_daycare_appointment_list")
     bo = count_day(cid, bid, tomorrow_d, "reports_boarding_appointment_list")
-    tomorrow_counts[name] = {"daycare": dc, "boarding": bo}
+    snp_tm_count = count_day(cid, bid, tomorrow_d, "reports_boarding_appointment_list")
+    tomorrow_counts[name] = {"daycare": dc, "boarding": bo, "snp": 0}
     log(f"  Tomorrow {name}: DC={dc} BO={bo}")
 log("Tomorrow data complete.")
 
@@ -1213,7 +1230,7 @@ def build_command_center_tab(loc_filter=None):
             p=(v/mx*100) if mx>0 else 0
             col=cap_color(p)
             return "<span style=\"color:"+col+";font-weight:700\">"+str(v)+"/"+str(mx)+" ({:.0f}%)</span>".format(p)
-        snp_t = scorecard[name].get("snp", 0)
+        snp_t = today_counts[name].get("snp", 0)
         snp_tm = 0  # SNP tomorrow not available from API
         snp_cap = cap.get("snp", 0)
         body=(
