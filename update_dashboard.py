@@ -270,6 +270,27 @@ for name, cid, bid in LOCS:
     boarding_nights[name] = {"dogs":len(rows),"nights":nights}
     log("  Boarding " + name + ": " + str(len(rows)) + " dogs, " + str(nights) + " nights")
 
+# ── STAFF PERFORMANCE ─────────────────────────────────────────────────────────
+log("Pulling staff performance...")
+staff_data = {}
+for name, cid, bid in LOCS:
+    r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
+                  "condition":{"id":"reports_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
+    rows = r.get("tableData",{}).get("rows",[])
+    staff = {}
+    for row in rows:
+        rd = row["data"]
+        st = rd.get("appointment_status",{}).get("value",{}).get("string","")
+        if st in ["Cancelled","No-show"]: continue
+        sname = rd.get("assigned_staff",{}).get("value",{}).get("string","") or "Unassigned"
+        rev = money(rd, "net_sale")
+        if sname not in staff: staff[sname] = {"appts":0,"revenue":0}
+        staff[sname]["appts"] += 1
+        staff[sname]["revenue"] += rev
+    staff_data[name] = dict(sorted(staff.items(), key=lambda x: x[1]["revenue"], reverse=True))
+    log(f"  Staff {name}: {len(staff)} groomers")
+log("Staff data complete.")
+
 # ── CANCELLATION RATES ────────────────────────────────────────────────────────
 log("Pulling cancellation rates...")
 cancel_data = {}
@@ -1344,6 +1365,24 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
+    # Staff performance cards
+    stf_cards = ""
+    for name in locs:
+        c = COLORS[name]
+        sd = staff_data.get(name, {})
+        rows_html = ""
+        for sname, stats in list(sd.items())[:5]:
+            short = sname.split()[0] if sname != "Unassigned" else "Unassigned"
+            rows_html += row(short, str(stats["appts"])+" appts · "+fmt(stats["revenue"]))
+        if not rows_html:
+            rows_html = row("No data","—")
+        top_rev = list(sd.values())[0]["revenue"] if sd else 0
+        body = (
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+";margin-bottom:8px\">"+str(len(sd))+" staff</div>"
+            +rows_html
+        )
+        stf_cards += card(c, name, body)
+
     can_cards = ""
     for name in locs:
         c = COLORS[name]; cd = cancel_data.get(name,{})
@@ -1369,6 +1408,8 @@ def build_command_center_tab(loc_filter=None):
         +grid(bon_cards)
         +section("📈","GROWTH PULSE","Week to date")
         +grid(gro_cards)
+        +section("✂️","STAFF PERFORMANCE","WTD grooming appointments & revenue")
+        +grid(stf_cards)
         +section("❌","CANCELLATIONS","Rolling WTD grooming & daycare")
         +grid(can_cards)
         +"</div>")
