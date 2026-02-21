@@ -551,3 +551,82 @@
 [2026-02-21 12:52:30] Dashboard saved to /Users/rade/Desktop/CentralBark/central_bark_dashboard.html
 [2026-02-21 12:52:30] Pushed all files to GitHub Pages
 [2026-02-21 12:52:30] Done.
+[2026-02-21 12:59:44] Starting update - week Feb 15–Feb 21, 2026
+[2026-02-21 12:59:44] Pulling Wauwatosa...
+[2026-02-21 12:59:47]   DAYCARE: 614
+[2026-02-21 12:59:48]   BOARDING: 33
+[2026-02-21 12:59:49]   GROOMING: 76
+[2026-02-21 12:59:49] Pulling Milwaukee Downtown...
+[2026-02-21 12:59:51]   DAYCARE: 326
+[2026-02-21 12:59:52]   BOARDING: 9
+[2026-02-21 12:59:52]   GROOMING: 38
+[2026-02-21 12:59:52] Pulling Grayslake...
+[2026-02-21 12:59:54]   DAYCARE: 443
+[2026-02-21 12:59:55]   BOARDING: 8
+[2026-02-21 12:59:56]   GROOMING: 70
+[2026-02-21 12:59:56] Pulling Milwaukee Eastside...
+[2026-02-21 12:59:58]   DAYCARE: 329
+[2026-02-21 12:59:59]   BOARDING: 11
+[2026-02-21 13:00:00]   GROOMING: 71
+[2026-02-21 13:00:00] Pulling Mequon...
+[2026-02-21 13:00:03]   DAYCARE: 0
+[2026-02-21 13:00:03]   BOARDING: 0
+[2026-02-21 13:00:04]   GROOMING: 0
+[2026-02-21 13:00:04] Pulling last week + clients + boarding nights...
+[2026-02-21 13:00:05]   Last week Wauwatosa: $35,331.13
+[2026-02-21 13:00:06]   Last week Milwaukee Downtown: $18,878.70
+[2026-02-21 13:00:07]   Last week Grayslake: $23,207.88
+[2026-02-21 13:00:07]   Last week Milwaukee Eastside: $21,883.90
+[2026-02-21 13:00:08]   Last week Mequon: $0.00
+[2026-02-21 13:00:09]   Clients Wauwatosa: new=3 total=402
+[2026-02-21 13:00:11]   Clients Milwaukee Downtown: new=3 total=185
+[2026-02-21 13:00:12]   Clients Grayslake: new=3 total=275
+[2026-02-21 13:00:13]   Clients Milwaukee Eastside: new=3 total=216
+[2026-02-21 13:00:15]   Clients Mequon: new=0 total=0
+[2026-02-21 13:00:15]   Boarding Wauwatosa: 33 dogs, 65 nights
+[2026-02-21 13:00:16]   Boarding Milwaukee Downtown: 9 dogs, 20 nights
+[2026-02-21 13:00:17]   Boarding Grayslake: 8 dogs, 20 nights
+[2026-02-21 13:00:17]   Boarding Milwaukee Eastside: 11 dogs, 27 nights
+[2026-02-21 13:00:18]   Boarding Mequon: 0 dogs, 0 nights
+[2026-02-21 13:00:19]   Q1 Wauwatosa: $236,317.76 / $433,126.89 (54.6%)
+[2026-02-21 13:00:21]   Q1 Milwaukee Downtown: $130,058.04 / $227,805.84 (57.1%)
+[2026-02-21 13:00:23]   Q1 Grayslake: $170,889.00 / $315,763.77 (54.1%)
+[2026-02-21 13:00:25]   Q1 Milwaukee Eastside: $153,313.07 / $273,556.22 (56.0%)
+[2026-02-21 13:00:26]   Q1 Mequon: $0.00 / $0.00 (0.0%)
+[2026-02-21 13:00:26] Data complete - building HTML...
+[2026-02-21 13:00:28]   Retail Wauwatosa: $551.68 (1.8%% of revenue)
+[2026-02-21 13:00:29]   Retail Milwaukee Downtown: $256.09 (1.4%% of revenue)
+[2026-02-21 13:00:30]   Retail Grayslake: $122.57 (0.4%% of revenue)
+[2026-02-21 13:00:32]   Retail Milwaukee Eastside: $225.78 (1.1%% of revenue)
+[2026-02-21 13:00:32]   Retail Mequon: $0.00 (0.0%% of revenue)
+[2026-02-21 13:00:34]   YTD Wauwatosa: $236,317.76 vs LY $220,498.35 (+7.2%)
+[2026-02-21 13:00:37]   YTD Milwaukee Downtown: $130,058.04 vs LY $114,849.38 (+13.2%)
+[2026-02-21 13:00:39]   YTD Grayslake: $170,889.00 vs LY $149,001.31 (+14.7%)
+[2026-02-21 13:00:41]   YTD Milwaukee Eastside: $153,313.07 vs LY $131,457.74 (+16.6%)
+[2026-02-21 13:00:43]   YTD Mequon: $0.00 vs LY $0.00 (+0.0%)
+[2026-02-21 13:00:43] Data complete - building HTML...
+[2026-02-21 13:00:43] Pulling daily scorecard data...
+[2026-02-21 13:01:07]   Scorecard Wauwatosa: DC=9 BO=7 GR=7 Retail=$5.98
+[2026-02-21 13:01:32]   Scorecard Milwaukee Downtown: DC=8 BO=3 GR=1 Retail=$0.00
+[2026-02-21 13:01:53]   Scorecard Grayslake: DC=16 BO=2 GR=15 Retail=$0.00
+[2026-02-21 13:02:15]   Scorecard Milwaukee Eastside: DC=4 BO=0 GR=9 Retail=$0.00
+[2026-02-21 13:02:36]   Scorecard Mequon: DC=0 BO=0 GR=0 Retail=$0.00
+[2026-02-21 13:02:36] Scorecard data complete.
+[2026-02-21 13:02:36] Pulling tomorrow's bookings...
+[2026-02-21 13:02:37]   Tomorrow Wauwatosa: DC=0 BO=1
+[2026-02-21 13:02:38]   Tomorrow Milwaukee Downtown: DC=0 BO=1
+[2026-02-21 13:02:40]   Tomorrow Grayslake: DC=0 BO=1
+[2026-02-21 13:02:41]   Tomorrow Milwaukee Eastside: DC=0 BO=0
+[2026-02-21 13:02:42]   Tomorrow Mequon: DC=0 BO=0
+[2026-02-21 13:02:42] Tomorrow data complete.
+[2026-02-21 13:02:42] Generating dashboard files...
+[2026-02-21 13:02:42]   Generated index.html (owner)
+[2026-02-21 13:02:42]   Generated dm.html (district manager)
+[2026-02-21 13:02:42]   Generated gm-wauwatosa.html
+[2026-02-21 13:02:42]   Generated gm-milwaukee-downtown.html
+[2026-02-21 13:02:42]   Generated gm-grayslake.html
+[2026-02-21 13:02:42]   Generated gm-milwaukee-eastside.html
+[2026-02-21 13:02:42]   Generated gm-mequon.html
+[2026-02-21 13:02:42] Dashboard saved to /Users/rade/Desktop/CentralBark/central_bark_dashboard.html
+[2026-02-21 13:02:43] Pushed all files to GitHub Pages
+[2026-02-21 13:02:43] Done.
