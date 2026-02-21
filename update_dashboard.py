@@ -1144,7 +1144,7 @@ def build_command_center_tab(loc_filter=None):
                 +name+"</div>"+body+"</div></div>")
 
     def grid(cards):
-        return "<div style=\"display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:0 36px 28px\">"+cards+"</div>"
+        return "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:14px;padding:0 16px 28px\">"+cards+"</div>"
 
     def section(icon, title, sub):
         return ("<div style=\"padding:28px 36px 10px;\"><div style=\"font-size:1rem;font-weight:800\">"
