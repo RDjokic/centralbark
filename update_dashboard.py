@@ -325,9 +325,16 @@ from datetime import date as _date
 retention_data = {}
 _s90 = (week_sun - timedelta(days=83)).strftime("%Y-%m-%dT00:00:00Z")
 for name, cid, bid in LOCS:
-    r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
-                  "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":_s90,"endTime":END}}})
-    rows = r.get("tableData",{}).get("rows",[])
+    all_rows, page = [], "1"
+    while True:
+        r = api_post({"pagination":{"pageSize":500,"pageToken":page},"companyId":cid,"businessIds":[bid],
+                      "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":_s90,"endTime":END}}})
+        batch = r.get("tableData",{}).get("rows",[])
+        all_rows.extend(batch)
+        npt = r.get("nextPageToken","")
+        if not npt or npt == page or len(batch) < 500: break
+        page = npt
+    rows = all_rows
     cli = {}
     for row in rows:
         rd = row["data"]
