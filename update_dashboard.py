@@ -1023,7 +1023,7 @@ def pin_wrap(inner_html, pin, css, js_extra="", title="Central Bark Dashboard"):
 .pin-input:focus{border-color:#ea580c;}
 .pin-btn{width:100%;padding:12px;background:#ea580c;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;}
 .pin-err{color:#dc2626;font-size:0.8rem;margin-top:8px;display:none;}
-#dashboard{display:none;}
+#dashboard{display:none;}.five-col-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:0 36px 28px;}@media(max-width:600px){.five-col-grid,.cc-grid,.cc-section-grid,.cc-tmr-grid,.exec-grid,.gm-grid{grid-template-columns:1fr!important;padding:8px!important;gap:8px!important;}}
 """
     return (
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
@@ -1144,7 +1144,7 @@ def build_command_center_tab(loc_filter=None):
                 +name+"</div>"+body+"</div></div>")
 
     def grid(cards):
-        return "<div style=\"display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:0 36px 28px\">"+cards+"</div>"
+        return "<div class=\"five-col-grid\">"+cards+"</div>"
 
     def section(icon, title, sub):
         return ("<div style=\"padding:28px 36px 10px;\"><div style=\"font-size:1rem;font-weight:800\">"
