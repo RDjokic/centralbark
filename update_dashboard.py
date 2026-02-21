@@ -1024,7 +1024,7 @@ def pin_wrap(inner_html, pin, css, js_extra="", title="Central Bark Dashboard"):
 .pin-btn{width:100%;padding:12px;background:#ea580c;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;}
 .pin-err{color:#dc2626;font-size:0.8rem;margin-top:8px;display:none;}
 #dashboard{display:none;}
-"""
+@media(max-width:768px){.cc-grid{grid-template-columns:1fr!important;padding:12px!important;gap:12px!important;}.cc-section-grid{grid-template-columns:1fr!important;padding:0 12px 12px!important;gap:12px!important;}.cc-tmr-grid{grid-template-columns:1fr!important;padding:0 12px 12px!important;gap:12px!important;}.summary{grid-template-columns:repeat(2,1fr)!important;}.cards{grid-template-columns:1fr!important;}.exec-grid{grid-template-columns:1fr!important;padding:12px!important;}.gm-grid{grid-template-columns:1fr!important;padding:12px!important;}.labor-bar{grid-template-columns:repeat(2,1fr)!important;}.exec-summary{grid-template-columns:repeat(3,1fr)!important;}.trend-grid{grid-template-columns:1fr!important;}}"""
     return (
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
         "<meta charset=\"UTF-8\">\n"
