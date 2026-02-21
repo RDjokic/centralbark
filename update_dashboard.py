@@ -319,6 +319,30 @@ for name, cid, bid in LOCS:
     log(f"  Reviews {name}: avg={avg} n={len(scores)}")
 log("Review data complete.")
 
+# ── SERVICE MIX ──────────────────────────────────────────────────────────────
+log("Pulling service mix...")
+service_mix = {}
+for name, cid, bid in LOCS:
+    all_rows, page = [], "1"
+    while True:
+        r = api_post({"pagination":{"pageSize":500,"pageToken":page},"companyId":cid,"businessIds":[bid],
+                      "condition":{"id":"reports_sales_invoice_item","queryPeriod":{"startTime":START,"endTime":END}}})
+        batch = r.get("tableData",{}).get("rows",[])
+        all_rows.extend(batch)
+        npt = r.get("nextPageToken","")
+        if not npt or npt == page or len(batch) < 500: break
+        page = npt
+    cats = {}
+    for row in all_rows:
+        rd = row["data"]
+        cat = rd.get("revenue_category",{}).get("value",{}).get("string","") or rd.get("category",{}).get("value",{}).get("string","Other")
+        rev = money(rd, "net_sales")
+        cats[cat] = cats.get(cat, 0) + rev
+    total = sum(cats.values())
+    service_mix[name] = {"total": total, "cats": dict(sorted(cats.items(), key=lambda x: x[1], reverse=True))}
+    log(f"  Service mix {name}: {len(cats)} categories, total={fmt(total)}")
+log("Service mix complete.")
+
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
 log("Pulling client retention...")
 from datetime import date as _date
@@ -1429,6 +1453,23 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
+    # Service mix cards
+    mix_cards = ""
+    for name in locs:
+        c = COLORS[name]
+        sm = service_mix.get(name, {})
+        total = sm.get("total", 0)
+        cats = sm.get("cats", {})
+        cat_rows = ""
+        for cat, rev in list(cats.items())[:6]:
+            pct = round(rev/total*100,1) if total else 0
+            cat_rows += row(cat, fmt(rev)+" ({:.1f}%)".format(pct))
+        body = (
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+";margin-bottom:8px\">"+fmt(total)+"</div>"
+            +cat_rows
+        )
+        mix_cards += card(c, name, body)
+
     # Review score cards
     rev_score_cards = ""
     for name in locs:
@@ -1516,6 +1557,8 @@ def build_command_center_tab(loc_filter=None):
         +grid(bon_cards)
         +section("📈","GROWTH PULSE","Week to date")
         +grid(gro_cards)
+        +section("📊","SERVICE MIX","WTD revenue by category")
+        +grid(mix_cards)
         +section("⭐","REVIEW SCORES","WTD grooming reviews by location & staff")
         +grid(rev_score_cards)
         +section("🔄","CLIENT RETENTION","Rolling 90-day daycare clients")
