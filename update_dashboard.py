@@ -337,12 +337,11 @@ for name, cid, bid in LOCS:
         rd = row["data"]
         # Filter by appt_start_date to match current week only
         appt_ts = rd.get("appt_start_date",{}).get("value",{}).get("timestamp","")
-        if appt_ts:
-            from datetime import datetime as _dt
-            appt_d = _dt.strptime(appt_ts[:10],"%Y-%m-%d").date()
-            week_start = week_sun.date()
-            week_end = (week_sun + timedelta(days=6)).date()
-            if not (week_start <= appt_d <= week_end): continue
+        if not appt_ts: continue
+        appt_d = datetime.strptime(appt_ts[:10],"%Y-%m-%d").date()
+        week_start = week_sun.date()
+        week_end = (week_sun + timedelta(days=6)).date()
+        if not (week_start <= appt_d <= week_end): continue
         cat = rd.get("revenue_category",{}).get("value",{}).get("string","") or rd.get("category",{}).get("value",{}).get("string","Other")
         rev = money(rd, "net_sales")
         cats[cat] = cats.get(cat, 0) + rev
