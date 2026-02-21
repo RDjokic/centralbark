@@ -270,6 +270,32 @@ for name, cid, bid in LOCS:
     boarding_nights[name] = {"dogs":len(rows),"nights":nights}
     log("  Boarding " + name + ": " + str(len(rows)) + " dogs, " + str(nights) + " nights")
 
+# ── CANCELLATION RATES ────────────────────────────────────────────────────────
+log("Pulling cancellation rates...")
+cancel_data = {}
+for name, cid, bid in LOCS:
+    gr = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
+                   "condition":{"id":"reports_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
+    gr_rows = gr.get("tableData",{}).get("rows",[])
+    gr_total = len(gr_rows)
+    gr_cancel = sum(1 for r in gr_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") in ["Cancelled","No-show"])
+    gr_noshow = sum(1 for r in gr_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") == "No-show")
+
+    dc = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
+                   "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
+    dc_rows = dc.get("tableData",{}).get("rows",[])
+    dc_total = len(dc_rows)
+    dc_cancel = sum(1 for r in dc_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") == "Cancelled")
+
+    cancel_data[name] = {
+        "gr_total": gr_total, "gr_cancel": gr_cancel, "gr_noshow": gr_noshow,
+        "gr_rate": round(gr_cancel/gr_total*100,1) if gr_total else 0,
+        "dc_total": dc_total, "dc_cancel": dc_cancel,
+        "dc_rate": round(dc_cancel/dc_total*100,1) if dc_total else 0,
+    }
+    log(f"  Cancellations {name}: Grooming {gr_cancel}/{gr_total} ({cancel_data[name]['gr_rate']}%) Daycare {dc_cancel}/{dc_total} ({cancel_data[name]['dc_rate']}%)")
+log("Cancellation data complete.")
+
 # Q1 Bonus Tracker
 BONUS_TARGETS = {
     "Wauwatosa":          {"pct": 0.07, "ly_full": 404791.49},
@@ -1318,6 +1344,20 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
+    can_cards = ""
+    for name in locs:
+        c = COLORS[name]; cd = cancel_data.get(name,{})
+        gr_rate = cd.get("gr_rate",0); dc_rate = cd.get("dc_rate",0)
+        gr_col = "#dc2626" if gr_rate>15 else "#d97706" if gr_rate>10 else "#16a34a"
+        dc_col = "#dc2626" if dc_rate>25 else "#d97706" if dc_rate>15 else "#16a34a"
+        body = (
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+gr_col+";margin-bottom:8px\">{:.1f}%</div>".format(gr_rate)
+            +row("Grooming Cancel","<span style=\"color:"+gr_col+"\">"+str(cd.get("gr_cancel",0))+"/"+str(cd.get("gr_total",0))+"</span>")
+            +row("Grooming No-Show",str(cd.get("gr_noshow",0)))
+            +row("Daycare Cancel","<span style=\"color:"+dc_col+"\">"+str(cd.get("dc_cancel",0))+"/"+str(cd.get("dc_total",0))+"</span>")
+        )
+        can_cards += card(c, name, body)
+
     return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">" + summary_bar
         +section("💰","TODAY\'S REVENUE",today.strftime("%A, %B %d")+" · WTD vs Last Week")
         +grid(rev_cards)
@@ -1329,8 +1369,9 @@ def build_command_center_tab(loc_filter=None):
         +grid(bon_cards)
         +section("📈","GROWTH PULSE","Week to date")
         +grid(gro_cards)
+        +section("❌","CANCELLATIONS","Rolling WTD grooming & daycare")
+        +grid(can_cards)
         +"</div>")
-
 
 def build_exec_tab(loc_filter=None):
     """Build Executive View tab. loc_filter=None means all locations."""
