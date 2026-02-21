@@ -214,7 +214,9 @@ for name, cid, bid in LOCS:
         combined = service + " " + lodging
         if "SNP" in combined or "STAY" in combined or "PLAY" in combined:
             snp_total += 1
-            date_val = rd.get("appointment_start_date",{}).get("value",{}).get("string","")
+            _dv = rd.get("appointment_start_date",{}).get("value",{})
+            _ts = _dv.get("timestamp","")
+            date_val = _dv.get("string","") or (_ts[5:7]+"/"+_ts[8:10]+"/"+_ts[:4] if _ts else "")
             if date_val: snp_by_day[date_val] = snp_by_day.get(date_val,0) + 1
     counts[name]["SNP"] = {"TOTAL": snp_total}
     counts[name]["SNP"].update(snp_by_day)
