@@ -343,6 +343,33 @@ for name, cid, bid in LOCS:
     log(f"  Service mix {name}: {len(cats)} categories, total={fmt(total)}")
 log("Service mix complete.")
 
+# ── MEMBERSHIP CONVERSION ────────────────────────────────────────────────────
+log("Pulling membership conversion...")
+membership_conv = {}
+for name, cid, bid in LOCS:
+    all_rows, page = [], "1"
+    while True:
+        r = api_post({"pagination":{"pageSize":500,"pageToken":page},"companyId":cid,"businessIds":[bid],
+                      "condition":{"id":"reports_sales_invoice_item","queryPeriod":{"startTime":START,"endTime":END}}})
+        batch = r.get("tableData",{}).get("rows",[])
+        all_rows.extend(batch)
+        npt = r.get("nextPageToken","")
+        if not npt or npt == page or len(batch) < 500: break
+        page = npt
+    total_clients = set()
+    mem_clients = set()
+    for row in all_rows:
+        rd = row["data"]
+        cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
+        if cid_val: total_clients.add(cid_val)
+        mem_flag = rd.get("membership_redeemed_flag",{}).get("value",{}).get("string","")
+        if mem_flag and mem_flag.lower() in ["true","yes","1"] and cid_val:
+            mem_clients.add(cid_val)
+    rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
+    membership_conv[name] = {"total": len(total_clients), "members": len(mem_clients), "rate": rate}
+    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%)")
+log("Membership conversion complete.")
+
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
 log("Pulling client retention...")
 from datetime import date as _date
@@ -1453,6 +1480,23 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
+    # Membership conversion cards
+    mem_cards = ""
+    for name in locs:
+        c = COLORS[name]
+        mc = membership_conv.get(name, {})
+        rate = mc.get("rate", 0)
+        members = mc.get("members", 0)
+        total = mc.get("total", 0)
+        rate_col = "#16a34a" if rate >= 50 else "#d97706" if rate >= 25 else "#dc2626"
+        body = (
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+rate_col+";margin-bottom:8px\">{:.1f}%</div>".format(rate)
+            +row("Members WTD", str(members))
+            +row("Total Clients WTD", str(total))
+            +row("Non-Members", str(total - members))
+        )
+        mem_cards += card(c, name, body)
+
     # Service mix cards
     mix_cards = ""
     for name in locs:
@@ -1557,6 +1601,8 @@ def build_command_center_tab(loc_filter=None):
         +grid(bon_cards)
         +section("📈","GROWTH PULSE","Week to date")
         +grid(gro_cards)
+        +section("💳","MEMBERSHIP CONVERSION","WTD % of clients using membership")
+        +grid(mem_cards)
         +section("📊","SERVICE MIX","WTD revenue by category")
         +grid(mix_cards)
         +section("⭐","REVIEW SCORES","WTD grooming reviews by location & staff")
