@@ -596,6 +596,20 @@ def count_day(cid, bid, d, report_id):
                   "condition":{"id":report_id,"queryPeriod":{"startTime":s,"endTime":e}}})
     return len(r.get("tableData",{}).get("rows",[]))
 
+def count_snp(cid, bid, d):
+    """Pull Stay & Play count for a single day - filter daycare list by SNP lodging."""
+    s, e = day_range(d)
+    r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},
+                  "companyId":cid,"businessIds":[bid],
+                  "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":s,"endTime":e}}})
+    rows = r.get("tableData",{}).get("rows",[])
+    count = 0
+    for row in rows:
+        lodging = str(row.get("data",{}).get("lodgings",{}).get("value",{}).get("string",""))
+        if "SNP" in lodging.upper():
+            count += 1
+    return count
+
 def retail_day(cid, bid, d):
     """Pull retail revenue for a single day."""
     s, e = day_range(d)
@@ -635,6 +649,7 @@ for name, cid, bid in LOCS:
         ret = retail_day(cid, bid, d)
         return {"dc":dc, "bo":bo, "gr":gr, "retail":ret}
 
+    snp_today = count_snp(cid, bid, today_d)
     today_data = pull_day(today_d)
     lw_data    = pull_day(same_day_last_week)
     lm_data    = pull_day(same_day_last_month)
@@ -650,6 +665,7 @@ for name, cid, bid in LOCS:
         "last_month": lm_data,
         "last_year": ly_data,
         "avg": avg_data,
+        "snp": snp_today,
     }
     log(f"  Scorecard {name}: DC={today_data['dc']} BO={today_data['bo']} GR={today_data['gr']} Retail={fmt(today_data['retail'])}")
 
