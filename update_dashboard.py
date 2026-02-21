@@ -1028,7 +1028,7 @@ def pin_wrap(inner_html, pin, css, js_extra="", title="Central Bark Dashboard"):
     return (
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
         "<meta charset=\"UTF-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\n"
+        "<meta name=\"viewport\" content=\"width=1200\">\n"
         f"<title>{title}</title>\n"
         "<link href=\"https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap\" rel=\"stylesheet\">\n"
         "<style>" + pin_css + css + "</style>\n"
