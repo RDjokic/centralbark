@@ -291,6 +291,34 @@ for name, cid, bid in LOCS:
     log(f"  Staff {name}: {len(staff)} groomers")
 log("Staff data complete.")
 
+# ── REVIEW SCORES ────────────────────────────────────────────────────────────
+log("Pulling review scores...")
+review_data = {}
+for name, cid, bid in LOCS:
+    r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
+                  "condition":{"id":"reports_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
+    rows = r.get("tableData",{}).get("rows",[])
+    scores = []
+    staff_scores = {}
+    for row in rows:
+        rd = row["data"]
+        score_val = rd.get("average_review_score",{}).get("value",{})
+        score = score_val.get("number", score_val.get("double", None))
+        if score:
+            try:
+                score = float(score)
+                scores.append(score)
+                sname = rd.get("assigned_staff",{}).get("value",{}).get("string","") or "Unassigned"
+                if sname not in staff_scores: staff_scores[sname] = []
+                staff_scores[sname].append(score)
+            except: pass
+    avg = round(sum(scores)/len(scores),2) if scores else 0
+    staff_avgs = {s: round(sum(v)/len(v),2) for s,v in staff_scores.items() if v}
+    staff_avgs = dict(sorted(staff_avgs.items(), key=lambda x: x[1], reverse=True))
+    review_data[name] = {"avg": avg, "count": len(scores), "by_staff": staff_avgs}
+    log(f"  Reviews {name}: avg={avg} n={len(scores)}")
+log("Review data complete.")
+
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
 log("Pulling client retention...")
 from datetime import date as _date
@@ -1394,6 +1422,29 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
+    # Review score cards
+    rev_score_cards = ""
+    for name in locs:
+        c = COLORS[name]
+        rd = review_data.get(name, {})
+        avg = rd.get("avg", 0)
+        count = rd.get("count", 0)
+        by_staff = rd.get("by_staff", {})
+        avg_col = "#16a34a" if avg >= 4.5 else "#d97706" if avg >= 4.0 else "#dc2626"
+        stars = "★" * int(round(avg)) + "☆" * (5 - int(round(avg))) if avg else "—"
+        staff_rows = ""
+        for sname, sc in list(by_staff.items())[:4]:
+            short = sname.split()[0] if sname != "Unassigned" else "Unassigned"
+            s_col = "#16a34a" if sc >= 4.5 else "#d97706" if sc >= 4.0 else "#dc2626"
+            staff_rows += row(short, "<span style=\"color:"+s_col+"\">"+str(sc)+"</span>")
+        body = (
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+avg_col+";margin-bottom:4px\">"+(str(avg) if avg else "—")+"</div>"
+            +"<div style=\"font-size:0.8rem;color:"+avg_col+";margin-bottom:8px\">"+stars+"</div>"
+            +row("Total Reviews", str(count))
+            +staff_rows
+        )
+        rev_score_cards += card(c, name, body)
+
     # Client retention cards
     ret_cards = ""
     for name in locs:
@@ -1458,6 +1509,8 @@ def build_command_center_tab(loc_filter=None):
         +grid(bon_cards)
         +section("📈","GROWTH PULSE","Week to date")
         +grid(gro_cards)
+        +section("⭐","REVIEW SCORES","WTD grooming reviews by location & staff")
+        +grid(rev_score_cards)
         +section("🔄","CLIENT RETENTION","Rolling 90-day daycare clients")
         +grid(ret_cards)
         +section("✂️","STAFF PERFORMANCE","WTD grooming appointments & revenue")
