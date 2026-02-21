@@ -85,9 +85,9 @@ PINS = {
     "Milwaukee Eastside": "5555",   # change this - MKE Eastside GM
     "Mequon":             "6666",   # change this - Mequon GM
 }
-OUTPUT  = Path.home() / "Desktop" / "central_bark_dashboard.html"
+OUTPUT  = Path(__file__).parent / "central_bark_dashboard.html"
 OUTPUT2 = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "central_bark_dashboard.html"
-LOG     = Path.home() / "Desktop" / "central_bark_dashboard.log"
+LOG     = Path(__file__).parent / "central_bark_dashboard.log"
 
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1660,7 +1660,7 @@ def build_full_html(tabs, loc_filter=None, pin="0000", title="Central Bark Dashb
     return pin_wrap(inner, pin, CSS, title=title)
 
 # ── GENERATE ALL FILES ─────────────────────────────────────────────────────────
-REPO = Path.home() / "Desktop" / "centralbark"
+REPO = Path(__file__).parent
 
 log("Generating dashboard files...")
 
