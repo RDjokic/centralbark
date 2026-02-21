@@ -291,6 +291,35 @@ for name, cid, bid in LOCS:
     log(f"  Staff {name}: {len(staff)} groomers")
 log("Staff data complete.")
 
+# ── CLIENT RETENTION ─────────────────────────────────────────────────────────
+log("Pulling client retention...")
+from datetime import date as _date
+retention_data = {}
+_s90 = (week_sun - timedelta(days=83)).strftime("%Y-%m-%dT00:00:00Z")
+for name, cid, bid in LOCS:
+    r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
+                  "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":_s90,"endTime":END}}})
+    rows = r.get("tableData",{}).get("rows",[])
+    cli = {}
+    for row in rows:
+        rd = row["data"]
+        if rd.get("appointment_status",{}).get("value",{}).get("string","") == "Cancelled": continue
+        cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
+        ts = rd.get("appointment_start_date",{}).get("value",{}).get("timestamp","")
+        if ts and cid_val:
+            vd = datetime.strptime(ts[:10],"%Y-%m-%d").date()
+            if cid_val not in cli or cli[cid_val] < vd: cli[cid_val] = vd
+    today_d2 = _date.today()
+    retention_data[name] = {
+        "total": len(cli),
+        "active": sum(1 for d in cli.values() if (today_d2-d).days <= 30),
+        "lapsed_30": sum(1 for d in cli.values() if 30 < (today_d2-d).days <= 60),
+        "lapsed_60": sum(1 for d in cli.values() if 60 < (today_d2-d).days <= 90),
+        "lapsed_90": sum(1 for d in cli.values() if (today_d2-d).days > 90),
+    }
+    log(f"  Retention {name}: {retention_data[name]}")
+log("Retention data complete.")
+
 # ── CANCELLATION RATES ────────────────────────────────────────────────────────
 log("Pulling cancellation rates...")
 cancel_data = {}
@@ -1365,6 +1394,27 @@ def build_command_center_tab(loc_filter=None):
         +sbox("Membership WTD", fmt(total_mem))
         +"</div>")
 
+    # Client retention cards
+    ret_cards = ""
+    for name in locs:
+        c = COLORS[name]
+        rd = retention_data.get(name, {})
+        total = rd.get("total", 0)
+        active = rd.get("active", 0)
+        l30 = rd.get("lapsed_30", 0)
+        l60 = rd.get("lapsed_60", 0)
+        l90 = rd.get("lapsed_90", 0)
+        rate = round(active/total*100,1) if total else 0
+        rate_col = "#16a34a" if rate >= 70 else "#d97706" if rate >= 50 else "#dc2626"
+        body = (
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+rate_col+";margin-bottom:8px\">{:.1f}%</div>".format(rate)
+            +row("Active (0-30d)", "<span style=\"color:#16a34a\">"+str(active)+"</span>")
+            +row("Lapsed 30-60d", "<span style=\"color:#d97706\">"+str(l30)+"</span>")
+            +row("Lapsed 60-90d", "<span style=\"color:#dc2626\">"+str(l60)+"</span>")
+            +row("Total Clients", str(total))
+        )
+        ret_cards += card(c, name, body)
+
     # Staff performance cards
     stf_cards = ""
     for name in locs:
@@ -1408,6 +1458,8 @@ def build_command_center_tab(loc_filter=None):
         +grid(bon_cards)
         +section("📈","GROWTH PULSE","Week to date")
         +grid(gro_cards)
+        +section("🔄","CLIENT RETENTION","Rolling 90-day daycare clients")
+        +grid(ret_cards)
         +section("✂️","STAFF PERFORMANCE","WTD grooming appointments & revenue")
         +grid(stf_cards)
         +section("❌","CANCELLATIONS","Rolling WTD grooming & daycare")
