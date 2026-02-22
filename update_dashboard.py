@@ -1510,7 +1510,8 @@ def build_command_center_tab(loc_filter=None):
             pct = round(rev/total*100,1) if total else 0
             cat_rows += row(cat, fmt(rev)+" ({:.1f}%)".format(pct))
         body = (
-            "<div style=\"font-size:0.65rem;color:var(--muted);font-style:italic;margin-bottom:8px\">Based on checkout date</div>"
+            "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+";margin-bottom:4px\">"+fmt(total)+"</div>"
+            +"<div style=\"font-size:0.65rem;color:var(--muted);font-style:italic;margin-bottom:8px\">Based on checkout date</div>"
             +cat_rows
         )
         mix_cards += card(c, name, body)
