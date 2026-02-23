@@ -1387,11 +1387,11 @@ def build_command_center_tab(loc_filter=None):
             "<div style=\"display:flex;gap:6px;margin-bottom:8px\">"
             +"<div style=\"flex:1;min-width:0\">"
             +"<div style=\"font-size:0.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">TODAY</div>"
-            +"<div style=\"font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(today_only)+"</div>"
+            +"<div style=\"font-size:0.85rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(today_only)+"</div>"
             +"</div>"
             +"<div style=\"flex:1;min-width:0\">"
             +"<div style=\"font-size:0.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">WTD</div>"
-            +"<div style=\"font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(exp)+"</div>"
+            +"<div style=\"font-size:0.85rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(exp)+"</div>"
             +"</div>"
             +"</div>"
             +row("vs Last Week WTD", pct_badge(exp,lw))
