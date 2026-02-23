@@ -1959,26 +1959,15 @@ def build_boarding_rows_single(name):
 def build_weekly_summary_tab(loc_filter=None):
     locs = [n for n,_,_ in LOCS] if loc_filter is None else [loc_filter]
 
-    # If current week has no revenue yet (e.g. Sunday), show last week
-    use_prev = grand_exp < 100
-    if use_prev:
-        sw_label   = LW_LABEL
-        sw_counts  = prev_week_data.get("counts", {})
-        sw_clients = prev_week_data.get("clients", {})
-        sw_boarding= prev_week_data.get("boarding_nights", {})
-        sw_retail  = prev_week_data.get("retail_totals", {})
-        sw_ytd     = ytd_data
-        def sw_loc_total(name, field):
-            return lw_totals.get(name, {}).get(field, 0)
-    else:
-        sw_label   = WEEK_LABEL
-        sw_counts  = counts
-        sw_clients = clients
-        sw_boarding= boarding_nights
-        sw_retail  = {name: retail[name]["total"] for name, _, _ in LOCS}
-        sw_ytd     = ytd_data
-        def sw_loc_total(name, field):
-            return loc_total(name, field)
+    # Always show last week's complete data
+    sw_label   = LW_LABEL
+    sw_counts  = prev_week_data.get("counts", {})
+    sw_clients = prev_week_data.get("clients", {})
+    sw_boarding= prev_week_data.get("boarding_nights", {})
+    sw_retail  = prev_week_data.get("retail_totals", {})
+    sw_ytd     = ytd_data
+    def sw_loc_total(name, field):
+        return lw_totals.get(name, {}).get(field, 0)
 
     # Revenue table
     rev_rows_s = ""
@@ -2036,11 +2025,9 @@ def build_weekly_summary_tab(loc_filter=None):
             cr_rows_s += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono\">"+"{:,}".format(cl["total"])+"</td><td class=\"r mono\">"+str(cl["new"])+"</td><td class=\"r mono\">"+fmt(rt)+"</td></tr>"
     cr_rows_s += "<tr class=\"total\"><td>TOTAL</td><td class=\"r mono\">"+"{:,}".format(t_total_cl)+"</td><td class=\"r mono\">"+str(t_new_cl)+"</td><td class=\"r mono\">"+fmt(t_retail)+"</td></tr>"
 
-    note = ("<div class=\"note\" style=\"color:var(--muted);margin:0 36px 12px;\">Showing previous week \u2014 current week has no data yet</div>"
-            if use_prev else "")
     return (
         "<div class=\"section\" style=\"padding:18px 36px;\"><div class=\"section-title\">Weekly Summary \u2014 Week of "+sw_label+"</div></div>"
-        + note +
+        +
         "<div class=\"section\"><div class=\"section-title\">Revenue</div>"
         "<table><thead><tr><th>Location</th><th class=\"r\">Expected</th><th class=\"r\">Collected</th><th class=\"r\">Unpaid</th><th class=\"r\">Tips</th></tr></thead>"
         "<tbody>"+rev_rows_s+"</tbody></table></div>"
