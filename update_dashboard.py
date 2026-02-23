@@ -1375,7 +1375,7 @@ def build_command_center_tab(loc_filter=None):
         retail_wtd = sum(retail[name]["daily"].get(adate(dk),0) for dk in DAY_KEYS)
         mem_wtd = loc_mem(name)
         unp = loc_total(name,"unpaid"); unp_col = "#dc2626" if unp>0 else "#16a34a"
-        lw_full = last_week_rev[name]
+        lw_full = lw_totals.get(name, {}).get("expected", last_week_rev[name])
         spark = ""
         for j,dk in enumerate(DAY_KEYS):
             drev = sum(revenue[name].get(adate(dk),{}).values())
