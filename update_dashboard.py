@@ -152,6 +152,7 @@ last_sat   = week_sun - timedelta(seconds=1)
 LAST_START = last_sun.strftime("%Y-%m-%dT%H:%M:%SZ")
 LAST_END   = last_sat.strftime("%Y-%m-%dT%H:%M:%SZ")
 WEEK_LABEL = week_sun.strftime("%b %d") + "\u2013" + week_sat.strftime("%b %d, %Y")
+LW_LABEL   = last_sun.strftime("%b %d") + "\u2013" + last_sat.strftime("%b %d, %Y")
 UPDATED    = today.strftime("%b %d, %Y at %I:%M %p")
 DAYS       = [(week_sun + timedelta(days=i)) for i in range(7)]
 DAY_LABELS = [d.strftime("%a") + " " + str(d.month) + "/" + str(d.day) for d in DAYS]
@@ -177,6 +178,15 @@ if OUTPUT.exists():
             if not archive_path.exists():
                 shutil.copy(OUTPUT, archive_path)
                 print("[ARCHIVE] Saved " + old_week_label + " to Archive folder")
+
+# Load previous week snapshot (used by Week Review tab when current week has no data)
+WEEK_SUMMARY_FILE = Path(__file__).parent / "week_summary.json"
+prev_week_data = {}
+if WEEK_SUMMARY_FILE.exists():
+    try:
+        prev_week_data = json.loads(WEEK_SUMMARY_FILE.read_text())
+    except:
+        pass
 
 log("Starting update - week " + WEEK_LABEL)
 
@@ -225,10 +235,12 @@ for name, cid, bid in LOCS:
 log("Pulling last week + clients + boarding nights...")
 
 last_week_rev = {}
+lw_totals = {}  # Full last week revenue breakdown for Week Review tab
 for name, cid, bid in LOCS:
     d = api_post({"pagination":{"pageSize":100,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":LAST_START,"endTime":LAST_END},"groupByFieldKeys":["sale_datetime"]}})
     # Only sum last week days that match this week's completed days (apples to apples)
     total_lw = 0
+    lw_exp = lw_col = lw_unp = lw_tips = 0.0
     for row in d.get("tableData",{}).get("rows",[]):
         rd = row["data"]
         date_str = rd.get("sale_datetime",{}).get("value",{}).get("string","")
@@ -240,7 +252,13 @@ for name, cid, bid in LOCS:
                     total_lw += money(rd,"total_expected")
             except:
                 total_lw += money(rd,"total_expected")
+        # Full week totals (all 7 days) for Week Review
+        lw_exp  += money(rd,"total_expected")
+        lw_col  += money(rd,"total_collected")
+        lw_unp  += money(rd,"outstanding_balance")
+        lw_tips += money(rd,"total_tips")
     last_week_rev[name] = total_lw
+    lw_totals[name] = {"expected": lw_exp, "collected": lw_col, "unpaid": lw_unp, "tips": lw_tips}
     log("  Last week " + name + ": " + fmt(last_week_rev[name]))
 
 clients = {}
@@ -1938,6 +1956,105 @@ def build_boarding_rows_single(name):
     c=COLORS[name]; bd=boarding_nights[name]; avg=(bd["nights"]/bd["dogs"]) if bd["dogs"]>0 else 0
     return "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono\">"+str(bd["dogs"])+"</td><td class=\"r mono\">"+str(bd["nights"])+"</td><td class=\"r mono\">"+"{:.1f}".format(avg)+"</td></tr>"
 
+def build_weekly_summary_tab(loc_filter=None):
+    locs = [n for n,_,_ in LOCS] if loc_filter is None else [loc_filter]
+
+    # If current week has no revenue yet (e.g. Sunday), show last week
+    use_prev = grand_exp < 100
+    if use_prev:
+        sw_label   = LW_LABEL
+        sw_counts  = prev_week_data.get("counts", {})
+        sw_clients = prev_week_data.get("clients", {})
+        sw_boarding= prev_week_data.get("boarding_nights", {})
+        sw_retail  = prev_week_data.get("retail_totals", {})
+        sw_ytd     = ytd_data
+        def sw_loc_total(name, field):
+            return lw_totals.get(name, {}).get(field, 0)
+    else:
+        sw_label   = WEEK_LABEL
+        sw_counts  = counts
+        sw_clients = clients
+        sw_boarding= boarding_nights
+        sw_retail  = {name: retail[name]["total"] for name, _, _ in LOCS}
+        sw_ytd     = ytd_data
+        def sw_loc_total(name, field):
+            return loc_total(name, field)
+
+    # Revenue table
+    rev_rows_s = ""
+    total_exp = total_col = total_unp = total_tips = 0.0
+    for name in locs:
+        c = COLORS[name]
+        exp = sw_loc_total(name,"expected"); col2 = sw_loc_total(name,"collected")
+        unp = sw_loc_total(name,"unpaid");   tips = sw_loc_total(name,"tips")
+        total_exp += exp; total_col += col2; total_unp += unp; total_tips += tips
+        if exp == 0:
+            rev_rows_s += "<tr><td class=\"dim\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td></tr>"
+        else:
+            uc = "red" if unp > 0 else "green"
+            rev_rows_s += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono\">"+fmt(exp)+"</td><td class=\"r mono\">"+fmt(col2)+"</td><td class=\"r mono "+uc+"\">"+fmt(unp)+"</td><td class=\"r mono\">"+fmt(tips)+"</td></tr>"
+    uc2 = "red" if total_unp > 0 else "green"
+    rev_rows_s += "<tr class=\"total\"><td>TOTAL</td><td class=\"r mono\">"+fmt(total_exp)+"</td><td class=\"r mono\">"+fmt(total_col)+"</td><td class=\"r mono "+uc2+"\">"+fmt(total_unp)+"</td><td class=\"r mono\">"+fmt(total_tips)+"</td></tr>"
+
+    # YTD table
+    ytd_rows_s = ""
+    for name in locs:
+        c = COLORS[name]; y = sw_ytd.get(name, {})
+        if not y or y.get("ty_ytd", 0) == 0:
+            ytd_rows_s += "<tr><td class=\"dim\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td></tr>"
+        else:
+            pc = "green" if y["pct"] >= 7 else "red"
+            ytd_rows_s += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono\">"+fmt(y["ty_ytd"])+"</td><td class=\"r mono\">"+fmt(y["ly_ytd"])+"</td><td class=\"r mono "+pc+"\">"+("+" if y["pct"]>=0 else "")+"{:.1f}%".format(y["pct"])+"</td></tr>"
+
+    # Appointments & boarding table
+    appt_rows_s = ""
+    t_dc = t_bo = t_gr = 0
+    for name in locs:
+        c = COLORS[name]
+        dc = sw_counts.get(name, {}).get("DAYCARE",{}).get("TOTAL",0)
+        bo = sw_counts.get(name, {}).get("BOARDING",{}).get("TOTAL",0)
+        gr = sw_counts.get(name, {}).get("GROOMING",{}).get("TOTAL",0)
+        bd = sw_boarding.get(name, {"dogs":0,"nights":0})
+        t_dc += dc; t_bo += bo; t_gr += gr
+        if dc == 0 and bo == 0 and gr == 0:
+            appt_rows_s += "<tr><td class=\"dim\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"c mono dim\">\u2014</td><td class=\"c mono dim\">\u2014</td><td class=\"c mono dim\">\u2014</td><td class=\"c mono dim\">\u2014</td><td class=\"c mono dim\">\u2014</td></tr>"
+        else:
+            appt_rows_s += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"c mono\">"+"{:,}".format(dc)+"</td><td class=\"c mono\">"+"{:,}".format(bo)+"</td><td class=\"c mono\">"+"{:,}".format(gr)+"</td><td class=\"c mono\">"+str(bd["dogs"])+"</td><td class=\"c mono\">"+str(bd["nights"])+"</td></tr>"
+    appt_rows_s += "<tr class=\"total\"><td>TOTAL</td><td class=\"c mono\">"+"{:,}".format(t_dc)+"</td><td class=\"c mono\">"+"{:,}".format(t_bo)+"</td><td class=\"c mono\">"+"{:,}".format(t_gr)+"</td><td class=\"c mono\">\u2014</td><td class=\"c mono\">\u2014</td></tr>"
+
+    # Clients & retail table
+    cr_rows_s = ""
+    t_total_cl = t_new_cl = 0; t_retail = 0.0
+    for name in locs:
+        c = COLORS[name]
+        cl = sw_clients.get(name, {"total":0,"new":0,"existing":0,"recurring":0})
+        rt = sw_retail.get(name, 0)
+        t_total_cl += cl["total"]; t_new_cl += cl["new"]; t_retail += rt
+        if cl["total"] == 0:
+            cr_rows_s += "<tr><td class=\"dim\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td><td class=\"r mono dim\">\u2014</td></tr>"
+        else:
+            cr_rows_s += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td class=\"r mono\">"+"{:,}".format(cl["total"])+"</td><td class=\"r mono\">"+str(cl["new"])+"</td><td class=\"r mono\">"+fmt(rt)+"</td></tr>"
+    cr_rows_s += "<tr class=\"total\"><td>TOTAL</td><td class=\"r mono\">"+"{:,}".format(t_total_cl)+"</td><td class=\"r mono\">"+str(t_new_cl)+"</td><td class=\"r mono\">"+fmt(t_retail)+"</td></tr>"
+
+    note = ("<div class=\"note\" style=\"color:var(--muted);margin:0 36px 12px;\">Showing previous week \u2014 current week has no data yet</div>"
+            if use_prev else "")
+    return (
+        "<div class=\"section\" style=\"padding:18px 36px;\"><div class=\"section-title\">Weekly Summary \u2014 Week of "+sw_label+"</div></div>"
+        + note +
+        "<div class=\"section\"><div class=\"section-title\">Revenue</div>"
+        "<table><thead><tr><th>Location</th><th class=\"r\">Expected</th><th class=\"r\">Collected</th><th class=\"r\">Unpaid</th><th class=\"r\">Tips</th></tr></thead>"
+        "<tbody>"+rev_rows_s+"</tbody></table></div>"
+        "<div class=\"section\"><div class=\"section-title\">YTD vs Last Year</div>"
+        "<table><thead><tr><th>Location</th><th class=\"r\">2026 YTD</th><th class=\"r\">2025 Same Days</th><th class=\"r\">Growth</th></tr></thead>"
+        "<tbody>"+ytd_rows_s+"</tbody></table></div>"
+        "<div class=\"section\"><div class=\"section-title\">Appointments &amp; Boarding</div>"
+        "<table><thead><tr><th>Location</th><th class=\"c\">Daycare</th><th class=\"c\">Boarding Appts</th><th class=\"c\">Grooming</th><th class=\"c\">Boarding Dogs</th><th class=\"c\">Nights</th></tr></thead>"
+        "<tbody>"+appt_rows_s+"</tbody></table></div>"
+        "<div class=\"section\"><div class=\"section-title\">Clients &amp; Retail</div>"
+        "<table><thead><tr><th>Location</th><th class=\"r\">Total Clients</th><th class=\"r\">New Clients</th><th class=\"r\">Retail WTD</th></tr></thead>"
+        "<tbody>"+cr_rows_s+"</tbody></table></div>"
+    )
+
 def build_full_html(tabs, loc_filter=None, pin="0000", title="Central Bark Dashboard"):
     """
     tabs: list of tab names to include e.g. ["cc","full"]
@@ -1955,6 +2072,9 @@ def build_full_html(tabs, loc_filter=None, pin="0000", title="Central Bark Dashb
         elif tab == "exec":
             tab_buttons += f"<div class=\"tab {active}\" onclick=\"showTab(\'tab-exec\',this)\">Executive View</div>"
             tab_contents += f"<div id=\"tab-exec\" class=\"tab-content {active}\">" + build_exec_tab(loc_filter) + "</div>"
+        elif tab == "weekly":
+            tab_buttons += f"<div class=\"tab {active}\" onclick=\"showTab('tab-weekly',this)\">Week Review</div>"
+            tab_contents += f"<div id=\"tab-weekly\" class=\"tab-content {active}\">" + build_weekly_summary_tab(loc_filter) + "</div>"
         elif tab == "full":
             tab_buttons += f"<div class=\"tab {active}\" onclick=\"showTab(\'tab-full\',this)\">Full Detail</div>"
             tab_contents += f"<div id=\"tab-full\" class=\"tab-content {active}\">" + build_full_tab(loc_filter) + "</div>"
@@ -1975,7 +2095,7 @@ REPO = Path(__file__).parent
 log("Generating dashboard files...")
 
 # Owner - all tabs, all locations
-owner_html = build_full_html(["cc","full"], loc_filter=None, pin=PINS["owner"], title="Central Bark - Owner")
+owner_html = build_full_html(["cc","weekly","full"], loc_filter=None, pin=PINS["owner"], title="Central Bark - Owner")
 OUTPUT.write_text(owner_html)
 try: OUTPUT2.write_text(owner_html)
 except: pass
@@ -1983,7 +2103,7 @@ except: pass
 log("  Generated index.html (owner)")
 
 # District Manager - full + gm, all locations
-dm_html = build_full_html(["cc","full"], loc_filter=None, pin=PINS["dm"], title="Central Bark - District Manager")
+dm_html = build_full_html(["cc","weekly","full"], loc_filter=None, pin=PINS["dm"], title="Central Bark - District Manager")
 (REPO / "dm.html").write_text(dm_html)
 log("  Generated dm.html (district manager)")
 
@@ -1996,11 +2116,27 @@ GM_FILES = {
     "Mequon":             "gm-mequon.html",
 }
 for name, filename in GM_FILES.items():
-    gm_html = build_full_html(["cc","full"], loc_filter=name, pin=PINS[name], title=f"Central Bark - {name}")
+    gm_html = build_full_html(["cc","weekly","full"], loc_filter=name, pin=PINS[name], title=f"Central Bark - {name}")
     (REPO / filename).write_text(gm_html)
     log(f"  Generated {filename}")
 
 log("Dashboard saved to " + str(OUTPUT))
+
+# ── SAVE WEEK SUMMARY SNAPSHOT ─────────────────────────────────────────────────
+# Only overwrite when we have meaningful data (prevents Sunday's empty run from
+# wiping out Saturday's complete snapshot)
+try:
+    if grand_exp > 5000:
+        week_snapshot = {
+            "week_label": WEEK_LABEL,
+            "counts": {name: {svc: counts[name].get(svc, {}) for svc in ["DAYCARE","BOARDING","GROOMING"]} for name, _, _ in LOCS},
+            "clients": clients,
+            "boarding_nights": boarding_nights,
+            "retail_totals": {name: retail[name]["total"] for name, _, _ in LOCS},
+        }
+        WEEK_SUMMARY_FILE.write_text(json.dumps(week_snapshot))
+except Exception as e:
+    log("Week snapshot save failed: " + str(e))
 
 # ── PUSH TO GITHUB ─────────────────────────────────────────────────────────────
 import shutil as _shutil
@@ -2008,6 +2144,8 @@ try:
     files_to_push = ["index.html","dm.html"] + list(GM_FILES.values())
     for f in files_to_push:
         subprocess.run(["git","-C",str(REPO),"add",f], check=True)
+    if WEEK_SUMMARY_FILE.exists():
+        subprocess.run(["git","-C",str(REPO),"add","week_summary.json"], check=True)
     subprocess.run(["git","-C",str(REPO),"commit","-m","dashboard update "+UPDATED], check=True)
     subprocess.run(["git","-C",str(REPO),"push","origin","main"], check=True)
     log("Pushed all files to GitHub Pages")
