@@ -1384,12 +1384,16 @@ def build_command_center_tab(loc_filter=None):
             spark += "<div style=\"height:{}px;width:8px;background:{};border-radius:3px 3px 0 0;display:inline-block;margin-right:2px\"></div>".format(h,clr)
         vs4col = "#16a34a" if vs4>=0 else "#dc2626"
         body = (
-            "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">REVENUE TODAY</div>"
-            +"<div style=\"display:flex;align-items:baseline;gap:12px;margin-bottom:8px\">"
-            +"<span style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(today_only)+"</span>"
-            +"<span style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\"> / "+fmt(exp)+"</span>"
+            "<div style=\"display:flex;gap:6px;margin-bottom:8px\">"
+            +"<div style=\"flex:1;min-width:0\">"
+            +"<div style=\"font-size:0.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">TODAY</div>"
+            +"<div style=\"font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(today_only)+"</div>"
             +"</div>"
-            +row("WTD Revenue", fmt(exp))
+            +"<div style=\"flex:1;min-width:0\">"
+            +"<div style=\"font-size:0.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">WTD</div>"
+            +"<div style=\"font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+"\">"+fmt(exp)+"</div>"
+            +"</div>"
+            +"</div>"
             +row("vs Last Week WTD", pct_badge(exp,lw))
             +row("vs 4-Wk Same Day", "<span style=\"color:"+vs4col+"\">"+("{:+.1f}%".format(vs4))+"</span>")
             +row("Last Week Total", fmt(lw_full))
