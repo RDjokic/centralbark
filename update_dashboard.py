@@ -223,19 +223,15 @@ for name, cid, bid in LOCS:
         log("  " + label + ": " + str(total))
     # SNP from boarding list - filter by service containing SNP/Stay & Play keywords
     snp_rows = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_boarding_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
+    SNP_KEYWORDS = ["SNP","STAY","PLAY","S&P","STAY &","STAY AND","STAY N"]
     snp_by_day = {}
     snp_total = 0
-    snp_types_seen = set()
-    all_boarding_types = set()
     for row in snp_rows.get("tableData",{}).get("rows",[]):
         rd = row.get("data",{})
         service = str(rd.get("service_type",rd.get("service",rd.get("type",{}))).get("value",{}).get("string","")).upper()
         lodging = str(rd.get("lodgings",rd.get("lodging_type",rd.get("lodging",{}))).get("value",{}).get("string","")).upper()
         combined = service + " " + lodging
-        all_boarding_types.add(combined.strip())
-        SNP_KEYWORDS = ["SNP","STAY","PLAY","S&P","STAY &","STAY AND","STAY N"]
         if any(kw in combined for kw in SNP_KEYWORDS):
-            snp_types_seen.add(combined.strip())
             snp_total += 1
             _dv = rd.get("appointment_start_date",{}).get("value",{})
             _ts = _dv.get("timestamp","")
@@ -243,8 +239,7 @@ for name, cid, bid in LOCS:
             if date_val: snp_by_day[date_val] = snp_by_day.get(date_val,0) + 1
     counts[name]["SNP"] = {"TOTAL": snp_total}
     counts[name]["SNP"].update(snp_by_day)
-    log("  SNP: " + str(snp_total) + " | matched types: " + str(snp_types_seen))
-    log("  All boarding types: " + str(all_boarding_types))
+    log("  SNP: " + str(snp_total))
 
 log("Pulling last week + clients + boarding nights...")
 
@@ -391,12 +386,6 @@ for name, cid, bid in LOCS:
         page = npt
     total_clients = set()
     mem_clients = set()
-    # Debug: log actual field value structures from first row
-    if all_rows and name == "Wauwatosa":
-        s = all_rows[0].get("data", {})
-        log(f"  [DEBUG] Membership fields: {list(s.keys())}")
-        log(f"  [DEBUG] membership_redeemed_flag raw: {s.get('membership_redeemed_flag','MISSING')}")
-        log(f"  [DEBUG] package_redeemed_flag raw: {s.get('package_redeemed_flag','MISSING')}")
     for row in all_rows:
         rd = row["data"]
         cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
