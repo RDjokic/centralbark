@@ -181,10 +181,18 @@ if OUTPUT.exists():
 
 # Load previous week snapshot (used by Week Review tab when current week has no data)
 WEEK_SUMMARY_FILE = Path(__file__).parent / "week_summary.json"
+UNPAID_HISTORY_FILE = Path(__file__).parent / "unpaid_history.json"
 prev_week_data = {}
 if WEEK_SUMMARY_FILE.exists():
     try:
         prev_week_data = json.loads(WEEK_SUMMARY_FILE.read_text())
+    except:
+        pass
+
+unpaid_history = {}
+if UNPAID_HISTORY_FILE.exists():
+    try:
+        unpaid_history = json.loads(UNPAID_HISTORY_FILE.read_text())
     except:
         pass
 
@@ -213,16 +221,21 @@ for name, cid, bid in LOCS:
         counts[name][label] = {"TOTAL": total}
         counts[name][label].update(by_day)
         log("  " + label + ": " + str(total))
-    # SNP from boarding list - filter by service containing SNP
+    # SNP from boarding list - filter by service containing SNP/Stay & Play keywords
     snp_rows = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_boarding_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
     snp_by_day = {}
     snp_total = 0
+    snp_types_seen = set()
+    all_boarding_types = set()
     for row in snp_rows.get("tableData",{}).get("rows",[]):
         rd = row.get("data",{})
         service = str(rd.get("service_type",rd.get("service",rd.get("type",{}))).get("value",{}).get("string","")).upper()
         lodging = str(rd.get("lodgings",rd.get("lodging_type",rd.get("lodging",{}))).get("value",{}).get("string","")).upper()
         combined = service + " " + lodging
-        if "SNP" in combined or "STAY" in combined or "PLAY" in combined:
+        all_boarding_types.add(combined.strip())
+        SNP_KEYWORDS = ["SNP","STAY","PLAY","S&P","STAY &","STAY AND","STAY N"]
+        if any(kw in combined for kw in SNP_KEYWORDS):
+            snp_types_seen.add(combined.strip())
             snp_total += 1
             _dv = rd.get("appointment_start_date",{}).get("value",{})
             _ts = _dv.get("timestamp","")
@@ -230,7 +243,8 @@ for name, cid, bid in LOCS:
             if date_val: snp_by_day[date_val] = snp_by_day.get(date_val,0) + 1
     counts[name]["SNP"] = {"TOTAL": snp_total}
     counts[name]["SNP"].update(snp_by_day)
-    log("  SNP: " + str(snp_total))
+    log("  SNP: " + str(snp_total) + " | matched types: " + str(snp_types_seen))
+    log("  All boarding types: " + str(all_boarding_types))
 
 log("Pulling last week + clients + boarding nights...")
 
@@ -377,12 +391,36 @@ for name, cid, bid in LOCS:
         page = npt
     total_clients = set()
     mem_clients = set()
+    # Debug: log field names from first row to help identify the correct membership field
+    if all_rows and name == "Wauwatosa":
+        sample = all_rows[0].get("data", {})
+        log(f"  [DEBUG] Membership invoice fields: {list(sample.keys())}")
+    MEM_FIELDS = ["membership_redeemed_flag","is_membership","membership_type",
+                  "promo_type","membership_plan_name","plan_name","is_member",
+                  "membership_plan","membership_discount"]
     for row in all_rows:
         rd = row["data"]
         cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
-        if cid_val: total_clients.add(cid_val)
-        mem_flag = rd.get("membership_redeemed_flag",{}).get("value",{}).get("string","")
-        if mem_flag and mem_flag.lower() in ["true","yes","1"] and cid_val:
+        if not cid_val: continue
+        total_clients.add(cid_val)
+        is_member = False
+        # Try known membership flag field names
+        for fld in MEM_FIELDS:
+            fdata = rd.get(fld, {})
+            if not isinstance(fdata, dict): continue
+            val = str(fdata.get("value", {}).get("string", "")).lower()
+            if val and val not in ["false", "0", "none", "no", ""]:
+                is_member = True
+                break
+        # Fallback: check if any field value contains "member"
+        if not is_member:
+            for fld, fdata in rd.items():
+                if not isinstance(fdata, dict): continue
+                val = str(fdata.get("value", {}).get("string", "")).lower()
+                if "member" in val:
+                    is_member = True
+                    break
+        if is_member:
             mem_clients.add(cid_val)
     rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
     membership_conv[name] = {"total": len(total_clients), "members": len(mem_clients), "rate": rate}
@@ -428,18 +466,36 @@ log("Retention data complete.")
 # ── CANCELLATION RATES ────────────────────────────────────────────────────────
 log("Pulling cancellation rates...")
 cancel_data = {}
+# Use today as end to avoid counting future appointments in the denominator
+cancel_end = today.strftime("%Y-%m-%dT23:59:59Z")
 for name, cid, bid in LOCS:
-    gr = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
-                   "condition":{"id":"reports_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
-    gr_rows = gr.get("tableData",{}).get("rows",[])
-    gr_total = len(gr_rows)
+    # Grooming cancellations — paginate to get full count
+    gr_rows = []
+    _page = "1"
+    while True:
+        r = api_post({"pagination":{"pageSize":500,"pageToken":_page},"companyId":cid,"businessIds":[bid],
+                      "condition":{"id":"reports_appointment_list","queryPeriod":{"startTime":START,"endTime":cancel_end}}})
+        batch = r.get("tableData",{}).get("rows",[])
+        gr_rows.extend(batch)
+        npt = r.get("nextPageToken","")
+        if not npt or npt == _page or len(batch) < 500: break
+        _page = npt
+    gr_total  = len(gr_rows)
     gr_cancel = sum(1 for r in gr_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") in ["Cancelled","No-show"])
     gr_noshow = sum(1 for r in gr_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") == "No-show")
 
-    dc = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],
-                   "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
-    dc_rows = dc.get("tableData",{}).get("rows",[])
-    dc_total = len(dc_rows)
+    # Daycare cancellations — paginate to get full count
+    dc_rows = []
+    _page = "1"
+    while True:
+        r = api_post({"pagination":{"pageSize":500,"pageToken":_page},"companyId":cid,"businessIds":[bid],
+                      "condition":{"id":"reports_daycare_appointment_list","queryPeriod":{"startTime":START,"endTime":cancel_end}}})
+        batch = r.get("tableData",{}).get("rows",[])
+        dc_rows.extend(batch)
+        npt = r.get("nextPageToken","")
+        if not npt or npt == _page or len(batch) < 500: break
+        _page = npt
+    dc_total  = len(dc_rows)
     dc_cancel = sum(1 for r in dc_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") == "Cancelled")
 
     cancel_data[name] = {
@@ -630,9 +686,9 @@ bonus_rows = ""
 for name, cid, bid in LOCS:
     c = COLORS[name]
     q = q1_data[name]
-    no_data = (q["ly_full"] == 0 and q["ty_qtd"] == 0)
+    no_data = (q["ly_full"] == 0)
     if no_data:
-        bonus_rows += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:" + c + "\"></span>" + name + "</td><td colspan=\"7\" style=\"color:#555;font-size:0.75rem\">Starts tracking Q2</td></tr>"
+        bonus_rows += "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:" + c + "\"></span>" + name + "</td><td colspan=\"7\" style=\"color:#555;font-size:0.75rem\">No LY baseline in MoeGo &mdash; bonus tracking begins Q1 2027</td></tr>"
         continue
     bar_color = "#22c55e" if q["progress"] >= 90 else "#f97316" if q["progress"] >= 70 else "#ef4444"
     vs_cls = "green" if q["vs_ly"] >= 0 else "red"
@@ -1021,6 +1077,101 @@ for name, cid, bid in LOCS:
         f"{fmt(wtd)} &nbsp;·&nbsp; {pct:.1f}%</span></div>"
     )
 
+LOC_ABBREV = {
+    "Wauwatosa":          "WAUWA",
+    "Milwaukee Downtown": "MKE DT",
+    "Grayslake":          "GRAYS",
+    "Milwaukee Eastside": "MKE ES",
+    "Mequon":             "MEQUON",
+}
+
+def compute_red_flags():
+    flags = {}
+    for name, _, _ in LOCS:
+        f = []
+        # 1. Unpaid balance
+        unp = loc_total(name, "unpaid")
+        if unp > 0:
+            f.append(("critical", "Unpaid {}".format(fmt(unp))))
+        # 2. Daycare capacity >= 90%
+        cap = CAPACITY[name]
+        dc_t = today_counts[name]["daycare"]
+        dc_p = cap_pct(dc_t, cap["daycare"])
+        if dc_p >= 90:
+            f.append(("critical", "Daycare {:.0f}% cap".format(dc_p)))
+        # 3. Boarding capacity >= 90%
+        bo_t = today_counts[name]["boarding"]
+        bo_p = cap_pct(bo_t, cap["boarding"])
+        if bo_p >= 90:
+            f.append(("critical", "Boarding {:.0f}% cap".format(bo_p)))
+        # 4. Labor > 35%
+        lp = labor_pct(name)
+        if lp > 35:
+            f.append(("critical", "Labor {:.1f}%".format(lp)))
+        # 5. WTD revenue below last week
+        exp = loc_total(name, "expected")
+        lw  = last_week_rev[name]
+        if lw > 0 and exp < lw:
+            wow = (exp - lw) / lw * 100
+            f.append(("warning", "Rev {:+.1f}% WoW".format(wow)))
+        # 6. Grooming cancel rate > 15%
+        cd = cancel_data.get(name, {})
+        gr_rate = cd.get("gr_rate", 0)
+        if gr_rate > 15:
+            f.append(("warning", "Grm cancel {:.1f}%".format(gr_rate)))
+        # 7. Daycare cancel rate > 10%
+        dc_rate = cd.get("dc_rate", 0)
+        if dc_rate > 10:
+            f.append(("warning", "DC cancel {:.1f}%".format(dc_rate)))
+        # 8. Q1 bonus progress < 70% (skip if no data)
+        q  = q1_data[name]
+        bp = q.get("progress", 0)
+        if q.get("ty_qtd", 0) > 0 and bp < 70:
+            f.append(("warning", "Q1 {:.1f}%".format(bp)))
+        # 9. YTD growth < 0%
+        y    = ytd_data[name]
+        ypct = y.get("pct", 0)
+        if y.get("ty_ytd", 0) > 0 and ypct < 0:
+            f.append(("warning", "YTD {:+.1f}%".format(ypct)))
+        # 10. Review avg < 4.0 (min 3 reviews)
+        rd  = review_data.get(name, {})
+        avg = rd.get("avg", 0)
+        cnt = rd.get("count", 0)
+        if cnt >= 3 and avg > 0 and avg < 4.0:
+            f.append(("warning", "Reviews {:.1f}\u2605".format(avg)))
+        if f:
+            flags[name] = f
+    return flags
+
+red_flags = compute_red_flags()
+
+def build_alert_banner(loc_filter=None):
+    flag_locs = ({loc_filter: red_flags.get(loc_filter, [])}
+                 if loc_filter else red_flags)
+    criticals = []
+    warnings  = []
+    for name, flags in flag_locs.items():
+        abbr = LOC_ABBREV.get(name, name[:6])
+        for sev, text in flags:
+            pill = ("<span class=\"alert-pill {sev}\">{abbr}: {text}</span>"
+                    .format(sev=sev, abbr=abbr, text=text))
+            if sev == "critical":
+                criticals.append(pill)
+            else:
+                warnings.append(pill)
+    html = ""
+    if criticals:
+        html += ("<div class=\"alert-bar critical\">"
+                 "&#x1F6A8; <strong>ACTION REQUIRED</strong>&nbsp; "
+                 + " ".join(criticals) + "</div>")
+    if warnings:
+        html += ("<div class=\"alert-bar warning\">"
+                 "&#9888; <strong>WATCH</strong>&nbsp; "
+                 + " ".join(warnings) + "</div>")
+    if not criticals and not warnings:
+        html = "<div class=\"alert-bar allclear\">&#10003; All clear &mdash; no flags today</div>"
+    return html
+
 CSS = (
 ":root{--bg:#f5f5f0;--surface:#fff;--surface2:#f0f0eb;--border:#e2e2d8;--text:#1a1a1a;--muted:#888;--muted2:#555;--red:#dc2626;--green:#16a34a;}"
 "*{margin:0;padding:0;box-sizing:border-box;}"
@@ -1135,6 +1286,15 @@ CSS = (
 ".labor-stat .l{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}"
 ".cap-grid{display:flex;flex-direction:column;gap:0;}.cap-row{display:grid;grid-template-columns:180px repeat(3,1fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}.cap-row:last-child{border-bottom:none;}.cap-name{font-size:0.82rem;font-weight:600;}.cap-metric{display:flex;flex-direction:column;gap:3px;}.cap-lbl{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;}.cap-bar-wrap{height:7px;background:#e2e2d8;border-radius:4px;overflow:hidden;}.cap-bar-fill{height:7px;border-radius:4px;}.cap-val{font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:600;}"
 ".cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:8px;background:var(--bg);}.cc-card{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;min-width:0;}.cc-card-header{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}.cc-card-name{font-size:0.78rem;font-weight:700;}.cc-card-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}.cc-metric{display:flex;justify-content:space-between;align-items:baseline;}.cc-metric-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;}.cc-metric-val{font-family:'DM Mono',monospace;font-size:0.88rem;font-weight:700;}.cc-delta{font-size:0.68rem;font-family:'DM Mono',monospace;margin-left:4px;}.cc-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:0 8px 8px;}.cc-mini{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;min-width:0;}.cc-mini-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:6px;}.cc-mini-val{font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;}.cc-mini-sub{font-size:0.68rem;color:var(--muted);margin-top:2px;}.cc-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-size:0.75rem;}.cc-row:last-child{border-bottom:none;}.cc-row-label{color:var(--muted);}.cc-row-val{font-family:'DM Mono',monospace;font-weight:600;}.cc-bonus-bar{height:6px;background:#e2e2d8;border-radius:3px;overflow:hidden;margin:4px 0;}.cc-bonus-fill{height:6px;border-radius:3px;}.sparkbar{display:inline-flex;align-items:flex-end;gap:2px;height:24px;vertical-align:middle;margin-left:6px;}.sparkbar span{width:6px;border-radius:2px 2px 0 0;display:inline-block;}.cc-tomorrow{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px 12px;}.cc-tmr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding:0 8px 8px;}.green{color:var(--green);} .red{color:var(--red);} .yellow{color:#d97706;}"
+".alert-bar{margin:10px 36px 0;padding:10px 18px;border-radius:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;}"
+".alert-bar.critical{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;}"
+".alert-bar.warning{background:#fffbeb;border:1px solid #fde68a;color:#92400e;}"
+".alert-bar.allclear{background:#f0fdf4;border:1px solid #86efac;color:#166534;}"
+".alert-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:0.74rem;font-weight:700;margin:1px;}"
+".alert-pill.critical{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}"
+".alert-pill.warning{background:#fef3c7;color:#b45309;border:1px solid #fde68a;}"
+"@keyframes pulse-red{0%,100%{background:#dc2626;}50%{background:#f87171;}}"
+".card-flagged{height:4px;animation:pulse-red 1.5s ease-in-out infinite;}"
 )
 
 unp_color = "red" if grand_unp > 0 else "green"
@@ -1319,6 +1479,65 @@ def build_capacity_section(loc_filter=None):
         "</div>"
     )
 
+def build_unpaid_history_section(loc_filter=None):
+    locs_to_show = ([loc_filter] if loc_filter
+                    else [name for name, _, _ in LOCS])
+    section_header = (
+        "<div style=\"padding:28px 36px 10px;\">"
+        "<div style=\"font-size:1rem;font-weight:800\">&#128203; UNPAID BALANCE HISTORY</div>"
+        "<div style=\"font-size:0.7rem;color:var(--muted)\">14-day running total by location</div>"
+        "</div>"
+    )
+    if not unpaid_history:
+        return (section_header
+                + "<div style=\"padding:0 36px 36px;\">"
+                "<p style=\"color:var(--muted);font-size:0.85rem\">No unpaid history yet.</p>"
+                "</div>")
+    all_dates    = sorted(unpaid_history.keys())
+    recent_dates = all_dates[-14:]
+    header = "<tr><th>Date</th>"
+    for name in locs_to_show:
+        header += "<th class=\"r\">" + LOC_ABBREV.get(name, name) + "</th>"
+    header += "<th class=\"r\">Total</th><th class=\"r\">Trend</th></tr>"
+    rows_html  = ""
+    prev_total = None
+    for date_str in recent_dates:
+        day_data = unpaid_history.get(date_str, {})
+        total    = sum(day_data.get(n, 0) for n in locs_to_show)
+        if prev_total is None:
+            trend = "&#9654;"; trend_col = "var(--muted)"
+        elif total > prev_total:
+            trend = "&#9650;"; trend_col = "#dc2626"
+        elif total < prev_total:
+            trend = "&#9660;"; trend_col = "#16a34a"
+        else:
+            trend = "&#9654;"; trend_col = "var(--muted)"
+        cells = ""
+        for name in locs_to_show:
+            val = day_data.get(name, 0)
+            bg  = "#fef2f2" if val > 0 else "#f0fdf4"
+            cells += ("<td class=\"r mono\" style=\"background:{}\">{}</td>"
+                      .format(bg, fmt(val) if val > 0 else "$0"))
+        total_bg   = "#fef2f2" if total > 0 else "#f0fdf4"
+        rows_html += (
+            "<tr>"
+            "<td>{}</td>".format(date_str)
+            + cells
+            + "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(
+                total_bg, fmt(total) if total > 0 else "$0")
+            + "<td class=\"r\" style=\"color:{};font-weight:700\">{}</td>".format(
+                trend_col, trend)
+            + "</tr>"
+        )
+        prev_total = total
+    return (
+        section_header
+        + "<div style=\"padding:0 36px 36px;\">"
+          "<div style=\"overflow-x:auto\"><table>"
+        + header + rows_html
+        + "</table></div></div>"
+    )
+
 def build_command_center_tab(loc_filter=None):
     locs = [n for n,_,_ in LOCS] if loc_filter is None else [loc_filter]
 
@@ -1335,11 +1554,14 @@ def build_command_center_tab(loc_filter=None):
                 +label+"</span><span style=\"font-family:\'DM Mono\',monospace;font-size:0.82rem;font-weight:700\">"
                 +str(val)+"</span></div>")
 
-    def card(color, name, body):
+    def card(color, name, body, flagged=False):
+        strip = ("<div class=\"card-flagged\"></div>"
+                 if flagged else
+                 "<div style=\"height:4px;background:"+color+"\"></div>")
         return ("<div style=\"border-radius:12px;border:1px solid var(--border);overflow:hidden;"
                 "box-shadow:0 2px 8px rgba(0,0,0,0.05);\">"
-                "<div style=\"height:4px;background:"+color+"\"></div>"
-                "<div style=\"padding:14px 16px;\">"
+                + strip
+                + "<div style=\"padding:14px 16px;\">"
                 "<div style=\"font-size:0.8rem;font-weight:800;color:"+color+";margin-bottom:10px\">"
                 +name+"</div>"+body+"</div></div>")
 
@@ -1405,7 +1627,7 @@ def build_command_center_tab(loc_filter=None):
             +row("Unpaid", "<span style=\"color:"+unp_col+"\">"+fmt(unp)+"</span>")
             +"<div style=\"display:flex;align-items:flex-end;height:36px;margin-top:8px\">"+spark+"</div>"
         )
-        rev_cards += card(c, name, body)
+        rev_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Capacity
     cap_cards = ""
@@ -1428,7 +1650,7 @@ def build_command_center_tab(loc_filter=None):
             +"<div style=\"font-size:0.75rem;font-weight:900;color:#111;text-transform:uppercase;padding:4px 0\">TOMORROW</div>"
             +row("Daycare", cv(dc_tm,cap["daycare"]))+row("Boarding", cv(bo_tm,cap["boarding"]))+row("Stay & Play", cv(snp_tm,snp_cap))
         )
-        cap_cards += card(c, name, body)
+        cap_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Labor
     lab_cards = ""
@@ -1440,7 +1662,7 @@ def build_command_center_tab(loc_filter=None):
             +row("Target", "{:.0f}%".format(LABOR_TARGET_PCT*100))
             +row("Tomorrow", "<span style=\"color:var(--muted)\">Homebase soon</span>")
         )
-        lab_cards += card(c, name, body)
+        lab_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Bonus
     bon_cards = ""
@@ -1450,18 +1672,26 @@ def build_command_center_tab(loc_filter=None):
         gap=q.get("gap",0); daily=(gap/days_left_q1) if days_left_q1>0 else 0
         target_amt = q.get("target",0)
         ty_qtd = q.get("ty_qtd",0)
-        bar="<div style=\"height:8px;background:#e2e2d8;border-radius:4px;overflow:hidden;margin:8px 0\"><div style=\"height:8px;background:"+bc+";width:{:.1f}%25;\"></div></div>".format(min(bp,100))
-        body=(
-            "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">Q1 PROGRESS</div>"
-            +"<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+bc+";margin-bottom:4px\">{:.1f}%</div>".format(bp)
-            +bar
-            +row("Q1 Goal", fmt(target_amt) if target_amt>0 else "—")
-            +row("Revenue to Date", fmt(ty_qtd) if ty_qtd>0 else fmt(loc_total(name,"expected")))
-            +row("Gap to Goal", "<span style=\"color:"+bc+"\">"+fmt(gap)+"</span>")
-            +row("Daily Needed", "<span style=\"color:"+bc+"\">"+fmt(daily)+"</span>")
-            +row("Days Left", str(days_left_q1))
+        if target_amt == 0:
+            body=(
+                row("Status", "<span style=\"color:var(--muted)\">No LY baseline</span>")
+                +row("QTD Revenue", fmt(ty_qtd) if ty_qtd>0 else "—")
+                +row("Days Left", str(days_left_q1))
+                +"<div style=\"font-size:0.68rem;color:var(--muted);margin-top:8px;font-style:italic\">Bonus tracking begins Q1 2027</div>"
+            )
+        else:
+            bar="<div style=\"height:8px;background:#e2e2d8;border-radius:4px;overflow:hidden;margin:8px 0\"><div style=\"height:8px;background:"+bc+";width:{:.1f}%25;\"></div></div>".format(min(bp,100))
+            body=(
+                "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">Q1 PROGRESS</div>"
+                +"<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+bc+";margin-bottom:4px\">{:.1f}%</div>".format(bp)
+                +bar
+                +row("Q1 Goal", fmt(target_amt))
+                +row("Revenue to Date", fmt(ty_qtd) if ty_qtd>0 else fmt(loc_total(name,"expected")))
+                +row("Gap to Goal", "<span style=\"color:"+bc+"\">"+fmt(gap)+"</span>")
+                +row("Daily Needed", "<span style=\"color:"+bc+"\">"+fmt(daily)+"</span>")
+                +row("Days Left", str(days_left_q1))
         )
-        bon_cards += card(c, name, body)
+        bon_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Growth
     gro_cards = ""
@@ -1476,7 +1706,7 @@ def build_command_center_tab(loc_filter=None):
             +"<div style=\"height:6px\"></div>"
             +row("Membership WTD",fmt(mw))+row("Membership % Rev","{:.1f}%".format((mw/ex*100) if ex>0 else 0))
         )
-        gro_cards += card(c, name, body)
+        gro_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Summary totals bar
     total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
@@ -1518,7 +1748,7 @@ def build_command_center_tab(loc_filter=None):
             +row("Total Clients WTD", str(total))
             +row("Non-Members", str(total - members))
         )
-        mem_cards += card(c, name, body)
+        mem_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Service mix cards
     mix_cards = ""
@@ -1536,7 +1766,7 @@ def build_command_center_tab(loc_filter=None):
             +"<div style=\"font-size:0.65rem;color:var(--muted);font-style:italic;margin-bottom:8px\">Based on checkout date</div>"
             +cat_rows
         )
-        mix_cards += card(c, name, body)
+        mix_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Review score cards
     rev_score_cards = ""
@@ -1559,7 +1789,7 @@ def build_command_center_tab(loc_filter=None):
             +row("Total Reviews", str(count))
             +staff_rows
         )
-        rev_score_cards += card(c, name, body)
+        rev_score_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Client retention cards
     ret_cards = ""
@@ -1580,7 +1810,7 @@ def build_command_center_tab(loc_filter=None):
             +row("Lapsed 60-90d", "<span style=\"color:#dc2626\">"+str(l60)+"</span>")
             +row("Total Clients", str(total))
         )
-        ret_cards += card(c, name, body)
+        ret_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Staff performance cards
     stf_cards = ""
@@ -1598,7 +1828,7 @@ def build_command_center_tab(loc_filter=None):
             "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+c+";margin-bottom:8px\">"+str(len(sd))+" staff</div>"
             +rows_html
         )
-        stf_cards += card(c, name, body)
+        stf_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     can_cards = ""
     for name in locs:
@@ -1612,9 +1842,10 @@ def build_command_center_tab(loc_filter=None):
             +row("Grooming No-Show",str(cd.get("gr_noshow",0)))
             +row("Daycare Cancel","<span style=\"color:"+dc_col+"\">"+str(cd.get("dc_cancel",0))+"/"+str(cd.get("dc_total",0))+"</span>")
         )
-        can_cards += card(c, name, body)
+        can_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     return ("<div style=\"background:var(--bg);min-height:100vh;padding-bottom:48px;\">" + summary_bar
+        +build_alert_banner(loc_filter)
         +section("💰","TODAY\'S REVENUE",today.strftime("%A, %B %d")+" · WTD vs Last Week")
         +grid(rev_cards)
         +section("🐾","CAPACITY","Today vs Tomorrow")
@@ -1637,6 +1868,7 @@ def build_command_center_tab(loc_filter=None):
         +grid(stf_cards)
         +section("❌","CANCELLATIONS","Rolling WTD grooming & daycare")
         +grid(can_cards)
+        +build_unpaid_history_section(loc_filter)
         +"</div>")
 
 def build_exec_tab(loc_filter=None):
@@ -1901,8 +2133,8 @@ def build_unpaid_rows_single(name):
 
 def build_bonus_rows_single(name):
     c=COLORS[name]; q=q1_data[name]
-    if q["ly_full"]==0 and q["ty_qtd"]==0:
-        return "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td colspan=\"7\" style=\"color:#555;font-size:0.75rem\">Starts tracking Q2</td></tr>"
+    if q["ly_full"]==0:
+        return "<tr><td class=\"bold\"><span class=\"dot\" style=\"background:"+c+"\"></span>"+name+"</td><td colspan=\"7\" style=\"color:#555;font-size:0.75rem\">No LY baseline in MoeGo &mdash; bonus tracking begins Q1 2027</td></tr>"
     bc="#22c55e" if q["progress"]>=90 else "#f97316" if q["progress"]>=70 else "#ef4444"
     vs_cls="green" if q["vs_ly"]>=0 else "red"
     vs_str=("+\u200b" if q["vs_ly"]>=0 else "")+"$"+"{:,.2f}".format(q["vs_ly"])+" ("+("+\u200b" if q["vs_pct"]>=0 else "")+"{:.1f}%".format(q["vs_pct"])+")"
@@ -2129,6 +2361,16 @@ try:
 except Exception as e:
     log("Week snapshot save failed: " + str(e))
 
+# Save unpaid history snapshot (no grand_exp guard — $0 unpaid is a valid data point)
+try:
+    today_str = today.strftime("%Y-%m-%d")
+    unpaid_history[today_str] = {name: round(loc_total(name, "unpaid"), 2) for name, _, _ in LOCS}
+    cutoff = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+    unpaid_history = {k: v for k, v in unpaid_history.items() if k >= cutoff}
+    UNPAID_HISTORY_FILE.write_text(json.dumps(unpaid_history, indent=2))
+except Exception as e:
+    log("Unpaid history save failed: " + str(e))
+
 # ── PUSH TO GITHUB ─────────────────────────────────────────────────────────────
 import shutil as _shutil
 try:
@@ -2137,6 +2379,8 @@ try:
         subprocess.run(["git","-C",str(REPO),"add",f], check=True)
     if WEEK_SUMMARY_FILE.exists():
         subprocess.run(["git","-C",str(REPO),"add","week_summary.json"], check=True)
+    if UNPAID_HISTORY_FILE.exists():
+        subprocess.run(["git","-C",str(REPO),"add","unpaid_history.json"], check=True)
     subprocess.run(["git","-C",str(REPO),"commit","-m","dashboard update "+UPDATED], check=True)
     subprocess.run(["git","-C",str(REPO),"push","origin","main"], check=True)
     log("Pushed all files to GitHub Pages")
