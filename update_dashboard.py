@@ -391,35 +391,29 @@ for name, cid, bid in LOCS:
         page = npt
     total_clients = set()
     mem_clients = set()
-    # Debug: log field names from first row to help identify the correct membership field
+    # Debug: log actual field value structures from first row
     if all_rows and name == "Wauwatosa":
-        sample = all_rows[0].get("data", {})
-        log(f"  [DEBUG] Membership invoice fields: {list(sample.keys())}")
-    MEM_FIELDS = ["membership_redeemed_flag","is_membership","membership_type",
-                  "promo_type","membership_plan_name","plan_name","is_member",
-                  "membership_plan","membership_discount"]
+        s = all_rows[0].get("data", {})
+        log(f"  [DEBUG] Membership fields: {list(s.keys())}")
+        log(f"  [DEBUG] membership_redeemed_flag raw: {s.get('membership_redeemed_flag','MISSING')}")
+        log(f"  [DEBUG] package_redeemed_flag raw: {s.get('package_redeemed_flag','MISSING')}")
     for row in all_rows:
         rd = row["data"]
         cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
         if not cid_val: continue
         total_clients.add(cid_val)
         is_member = False
-        # Try known membership flag field names
-        for fld in MEM_FIELDS:
+        for fld in ["membership_redeemed_flag", "package_redeemed_flag"]:
             fdata = rd.get(fld, {})
             if not isinstance(fdata, dict): continue
-            val = str(fdata.get("value", {}).get("string", "")).lower()
-            if val and val not in ["false", "0", "none", "no", ""]:
+            fval     = fdata.get("value", {})
+            str_val  = str(fval.get("string", "")).lower()
+            bool_val = fval.get("bool")
+            bool2    = fval.get("boolean")
+            if (str_val in ["true", "yes", "1"]
+                    or bool_val is True or bool2 is True):
                 is_member = True
                 break
-        # Fallback: check if any field value contains "member"
-        if not is_member:
-            for fld, fdata in rd.items():
-                if not isinstance(fdata, dict): continue
-                val = str(fdata.get("value", {}).get("string", "")).lower()
-                if "member" in val:
-                    is_member = True
-                    break
         if is_member:
             mem_clients.add(cid_val)
     rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
