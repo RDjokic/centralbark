@@ -384,33 +384,47 @@ for name, cid, bid in LOCS:
         npt = r.get("nextPageToken","")
         if not npt or npt == page or len(batch) < 500: break
         page = npt
-    total_clients = set()
-    mem_clients = set()
+    # Daycare-only membership conversion
+    # total_clients = clients who had a daycare appointment this week
+    # mem_clients   = of those, clients who redeemed a membership on any item
+    DAYCARE_CATS = {"daycare", "enrichment daycare", "enrichment add-on", "enrichment"}
+    daycare_clients = set()
+    all_mem_clients = set()
     for row in all_rows:
         rd = row["data"]
-        cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
+        cid_val    = rd.get("client_id",{}).get("value",{}).get("string","")
         if not cid_val: continue
-        # Only count clients tied to actual service appointments (not retail/membership fees)
         booking_id = rd.get("booking_id",{}).get("value",{}).get("string","")
         if not booking_id: continue
-        total_clients.add(cid_val)
-        is_member = False
+        cat = rd.get("revenue_category",{}).get("value",{}).get("string","").lower()
+        if cat in DAYCARE_CATS:
+            daycare_clients.add(cid_val)
         for fld in ["membership_redeemed_flag", "package_redeemed_flag"]:
             fdata = rd.get(fld, {})
             if not isinstance(fdata, dict): continue
-            fval     = fdata.get("value", {})
-            str_val  = str(fval.get("string", "")).lower()
-            bool_val = fval.get("bool")
-            bool2    = fval.get("boolean")
-            if (str_val in ["true", "yes", "1"]
-                    or bool_val is True or bool2 is True):
-                is_member = True
+            fval    = fdata.get("value", {})
+            str_val = str(fval.get("string", "")).lower()
+            bool_val = fval.get("bool"); bool2 = fval.get("boolean")
+            if str_val in ["true","yes","1"] or bool_val is True or bool2 is True:
+                all_mem_clients.add(cid_val)
                 break
-        if is_member:
-            mem_clients.add(cid_val)
+    # Fallback: if no daycare categories found (e.g. new location with uncategorized items),
+    # use all booking-id clients as the total (best available approximation)
+    if not daycare_clients:
+        all_booking_clients = set(
+            row["data"].get("client_id",{}).get("value",{}).get("string","")
+            for row in all_rows
+            if row["data"].get("booking_id",{}).get("value",{}).get("string","")
+               and row["data"].get("client_id",{}).get("value",{}).get("string","")
+        )
+        total_clients = all_booking_clients
+        mem_clients   = all_booking_clients & all_mem_clients
+    else:
+        total_clients = daycare_clients
+        mem_clients   = daycare_clients & all_mem_clients
     rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
     membership_conv[name] = {"total": len(total_clients), "members": len(mem_clients), "rate": rate}
-    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%)")
+    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%) [daycare only]")
 log("Membership conversion complete.")
 
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
@@ -1794,9 +1808,9 @@ def build_command_center_tab(loc_filter=None):
         rate_col = "#16a34a" if rate >= 50 else "#d97706" if rate >= 25 else "#dc2626"
         body = (
             "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+rate_col+";margin-bottom:8px\">{:.1f}%</div>".format(rate)
-            +row("Members WTD", str(members))
-            +row("Total Clients WTD", str(total))
-            +row("Non-Members", str(total - members))
+            +row("Daycare Members WTD", str(members))
+            +row("Daycare Clients WTD", str(total))
+            +row("Non-Member Daycare", str(total - members))
         )
         mem_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
