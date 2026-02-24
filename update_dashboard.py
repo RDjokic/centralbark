@@ -239,7 +239,7 @@ for name, cid, bid in LOCS:
             if date_val: snp_by_day[date_val] = snp_by_day.get(date_val,0) + 1
     counts[name]["SNP"] = {"TOTAL": snp_total}
     counts[name]["SNP"].update(snp_by_day)
-    log("  SNP: " + str(snp_total))
+    log("  SNP (boarding only): " + str(snp_total))
 
 log("Pulling last week + clients + boarding nights...")
 
@@ -390,6 +390,9 @@ for name, cid, bid in LOCS:
         rd = row["data"]
         cid_val = rd.get("client_id",{}).get("value",{}).get("string","")
         if not cid_val: continue
+        # Only count clients tied to actual service appointments (not retail/membership fees)
+        booking_id = rd.get("booking_id",{}).get("value",{}).get("string","")
+        if not booking_id: continue
         total_clients.add(cid_val)
         is_member = False
         for fld in ["membership_redeemed_flag", "package_redeemed_flag"]:
@@ -407,7 +410,7 @@ for name, cid, bid in LOCS:
             mem_clients.add(cid_val)
     rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
     membership_conv[name] = {"total": len(total_clients), "members": len(mem_clients), "rate": rate}
-    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%)")
+    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%) [total items={len(all_rows)}]")
 log("Membership conversion complete.")
 
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
@@ -481,13 +484,30 @@ for name, cid, bid in LOCS:
     dc_total  = len(dc_rows)
     dc_cancel = sum(1 for r in dc_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") == "Cancelled")
 
+    # Merge Day-N-Play into SNP counts (DNP is a daycare appointment, not boarding)
+    for row in dc_rows:
+        rd = row["data"]
+        svc    = str(rd.get("service",{}).get("value",{}).get("string","")).upper()
+        status = str(rd.get("appointment_status",{}).get("value",{}).get("string",""))
+        if "DAY-N-PLAY" in svc and status not in ["Cancelled","No-show"]:
+            _dv = rd.get("appointment_start_date",{}).get("value",{})
+            _ts = _dv.get("timestamp","")
+            date_val = _dv.get("string","") or (_ts[5:7]+"/"+_ts[8:10]+"/"+_ts[:4] if _ts else "")
+            if date_val:
+                counts[name]["SNP"][date_val] = counts[name]["SNP"].get(date_val, 0) + 1
+                counts[name]["SNP"]["TOTAL"]  = counts[name]["SNP"].get("TOTAL", 0) + 1
+
+    dnp_added = sum(1 for r in dc_rows
+                    if "DAY-N-PLAY" in str(r["data"].get("service",{}).get("value",{}).get("string","")).upper()
+                    and str(r["data"].get("appointment_status",{}).get("value",{}).get("string","")) not in ["Cancelled","No-show"])
     cancel_data[name] = {
         "gr_total": gr_total, "gr_cancel": gr_cancel, "gr_noshow": gr_noshow,
         "gr_rate": round(gr_cancel/gr_total*100,1) if gr_total else 0,
         "dc_total": dc_total, "dc_cancel": dc_cancel,
         "dc_rate": round(dc_cancel/dc_total*100,1) if dc_total else 0,
     }
-    log(f"  Cancellations {name}: Grooming {gr_cancel}/{gr_total} ({cancel_data[name]['gr_rate']}%) Daycare {dc_cancel}/{dc_total} ({cancel_data[name]['dc_rate']}%)")
+    snp_dnp_total = counts[name]["SNP"].get("TOTAL", 0)
+    log(f"  Cancellations {name}: Grooming {gr_cancel}/{gr_total} ({cancel_data[name]['gr_rate']}%) Daycare {dc_cancel}/{dc_total} ({cancel_data[name]['dc_rate']}%) | SNP+DNP total: {snp_dnp_total}")
 log("Cancellation data complete.")
 
 # Q1 Bonus Tracker
@@ -1467,8 +1487,8 @@ def build_unpaid_history_section(loc_filter=None):
                     else [name for name, _, _ in LOCS])
     section_header = (
         "<div style=\"padding:28px 36px 10px;\">"
-        "<div style=\"font-size:1rem;font-weight:800\">&#128203; UNPAID BALANCE HISTORY</div>"
-        "<div style=\"font-size:0.7rem;color:var(--muted)\">14-day running total by location</div>"
+        "<div style=\"font-size:1rem;font-weight:800\">&#128203; UNPAID BALANCE RUNNING TOTAL</div>"
+        "<div style=\"font-size:0.7rem;color:var(--muted)\">Daily snapshot — watch balances trend to $0 as invoices are paid</div>"
         "</div>"
     )
     if not unpaid_history:
@@ -1478,6 +1498,28 @@ def build_unpaid_history_section(loc_filter=None):
                 "</div>")
     all_dates    = sorted(unpaid_history.keys())
     recent_dates = all_dates[-14:]
+    # Summary: today vs yesterday
+    today_total = sum(unpaid_history.get(all_dates[-1], {}).get(n, 0) for n in locs_to_show) if all_dates else 0
+    prev_total_sum = sum(unpaid_history.get(all_dates[-2], {}).get(n, 0) for n in locs_to_show) if len(all_dates) >= 2 else None
+    if today_total == 0:
+        summary_col = "#166534"; summary_bg = "#f0fdf4"; summary_border = "#86efac"
+        summary_icon = "&#10003;"
+        summary_text = "<strong>All clear</strong> &mdash; no unpaid balances today"
+    else:
+        summary_col = "#991b1b"; summary_bg = "#fef2f2"; summary_border = "#fca5a5"
+        summary_icon = "&#9888;"
+        summary_text = "<strong>Outstanding: " + fmt(today_total) + "</strong>"
+    if prev_total_sum is not None and prev_total_sum != today_total:
+        diff = today_total - prev_total_sum
+        diff_str = (" &mdash; " + ("<span style=\"color:#16a34a\">&#9660; " + fmt(abs(diff)) + " paid since yesterday</span>"
+                    if diff < 0 else "<span style=\"color:#dc2626\">&#9650; " + fmt(diff) + " added since yesterday</span>"))
+        summary_text += diff_str
+    summary_bar = (
+        "<div style=\"margin:0 36px 12px;padding:10px 18px;border-radius:8px;"
+        "background:{bg};border:1px solid {bd};color:{col};font-size:0.82rem\">"
+        "{icon} {text}</div>".format(bg=summary_bg, bd=summary_border, col=summary_col,
+                                     icon=summary_icon, text=summary_text)
+    )
     header = "<tr><th>Date</th>"
     for name in locs_to_show:
         header += "<th class=\"r\">" + LOC_ABBREV.get(name, name) + "</th>"
@@ -1515,6 +1557,7 @@ def build_unpaid_history_section(loc_filter=None):
         prev_total = total
     return (
         section_header
+        + summary_bar
         + "<div style=\"padding:0 36px 36px;\">"
           "<div style=\"overflow-x:auto\"><table>"
         + header + rows_html
@@ -1656,11 +1699,16 @@ def build_command_center_tab(loc_filter=None):
         target_amt = q.get("target",0)
         ty_qtd = q.get("ty_qtd",0)
         if target_amt == 0:
+            days_elapsed_q1 = max(90 - days_left_q1, 1)
+            daily_avg_q1 = ty_qtd / days_elapsed_q1 if ty_qtd > 0 else 0
+            projected_q1  = ty_qtd + (daily_avg_q1 * days_left_q1)
             body=(
-                row("Status", "<span style=\"color:var(--muted)\">No LY baseline</span>")
+                "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">NEW LOCATION</div>"
                 +row("QTD Revenue", fmt(ty_qtd) if ty_qtd>0 else "—")
+                +row("Daily Avg", fmt(daily_avg_q1) if daily_avg_q1>0 else "—")
+                +row("Projected Q1", fmt(projected_q1) if projected_q1>0 else "—")
                 +row("Days Left", str(days_left_q1))
-                +"<div style=\"font-size:0.68rem;color:var(--muted);margin-top:8px;font-style:italic\">Bonus tracking begins Q1 2027</div>"
+                +"<div style=\"font-size:0.68rem;color:var(--muted);margin-top:8px;font-style:italic\">Bonus target set Q1 2027</div>"
             )
         else:
             bar="<div style=\"height:8px;background:#e2e2d8;border-radius:4px;overflow:hidden;margin:8px 0\"><div style=\"height:8px;background:"+bc+";width:{:.1f}%25;\"></div></div>".format(min(bp,100))
