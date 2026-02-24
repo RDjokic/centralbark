@@ -767,9 +767,26 @@ LY_YTD_END    = today.replace(year=2025).strftime("%Y-%m-%dT23:59:59Z")
 LY_FULL_START = "2025-01-01T00:00:00Z"
 LY_FULL_END   = "2025-12-31T23:59:59Z"
 ytd_data = {}
+ytd_unpaid_weekly = {}
 for name, cid, bid in LOCS:
     d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":TY_YTD_START,"endTime":TY_YTD_END},"groupByFieldKeys":["sale_datetime"]}})
     ty_ytd = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
+    # Capture weekly unpaid from this query (no extra API calls)
+    ytd_unpaid_weekly[name] = {}
+    _wk_cutoff = week_sun.strftime("%Y-%m-%d")
+    for _row in d.get("tableData",{}).get("rows",[]):
+        _rd  = _row["data"]
+        _ds  = _rd.get("sale_datetime",{}).get("value",{}).get("string","")
+        _unp = money(_rd, "outstanding_balance")
+        if not _ds: continue
+        try:
+            _rd_date = datetime.strptime(_ds, "%m/%d/%Y")
+            _wk_sun_dt = _rd_date - timedelta(days=(_rd_date.weekday() + 1) % 7)
+            _wk_key = _wk_sun_dt.strftime("%Y-%m-%d")
+            if _wk_key < _wk_cutoff:
+                ytd_unpaid_weekly[name][_wk_key] = round(ytd_unpaid_weekly[name].get(_wk_key, 0.0) + _unp, 2)
+        except:
+            pass
     d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":LY_YTD_START,"endTime":LY_YTD_END},"groupByFieldKeys":["sale_datetime"]}})
     ly_ytd = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
     d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":LY_FULL_START,"endTime":LY_FULL_END},"groupByFieldKeys":["sale_datetime"]}})
@@ -1583,6 +1600,62 @@ def build_unpaid_history_section(loc_filter=None):
             + "</tr>"
         )
         prev_total = total
+    # ── Weekly YTD table ──────────────────────────────────────────────────────
+    all_weeks = sorted(set(
+        wk for name in locs_to_show
+        for wk in ytd_unpaid_weekly.get(name, {}).keys()
+    ))
+    # Also include last week from lw_totals
+    lw_wk_key = last_sun.strftime("%Y-%m-%d")
+    if lw_wk_key not in all_weeks:
+        all_weeks = sorted(all_weeks + [lw_wk_key])
+    def wk_label(wk_key):
+        wk_sun_dt = datetime.strptime(wk_key, "%Y-%m-%d")
+        wk_sat_dt = wk_sun_dt + timedelta(days=6)
+        return wk_sun_dt.strftime("%b %-d") + "&ndash;" + wk_sat_dt.strftime("%b %-d")
+    wk_header = "<tr><th>Week</th>"
+    for name in locs_to_show:
+        wk_header += "<th class=\"r\">" + LOC_ABBREV.get(name, name) + "</th>"
+    wk_header += "<th class=\"r\">Total</th><th class=\"r\">Status</th></tr>"
+    wk_rows_html = ""
+    for wk_key in all_weeks:
+        wk_cells = ""
+        wk_total = 0.0
+        for name in locs_to_show:
+            if wk_key == lw_wk_key:
+                val = lw_totals.get(name, {}).get("unpaid", 0)
+            else:
+                val = ytd_unpaid_weekly.get(name, {}).get(wk_key, 0)
+            wk_total += val
+            bg = "#fef2f2" if val > 0 else "#f0fdf4"
+            wk_cells += "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(
+                bg, fmt(val) if val > 0 else "$0")
+        wk_total = round(wk_total, 2)
+        total_bg = "#fef2f2" if wk_total > 0 else "#f0fdf4"
+        status_col = "#dc2626" if wk_total > 0 else "#16a34a"
+        status_txt = fmt(wk_total) + " outstanding" if wk_total > 0 else "&#10003; Paid"
+        is_lw = wk_key == lw_wk_key
+        row_style = " style=\"font-style:italic;border-bottom:2px solid #ddd\"" if is_lw else ""
+        wk_rows_html += (
+            "<tr{}>".format(row_style)
+            + "<td style=\"white-space:nowrap\">{}{}</td>".format(
+                wk_label(wk_key), " <em style=\"color:var(--muted);font-size:0.7rem\">(last wk)</em>" if is_lw else "")
+            + wk_cells
+            + "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(
+                total_bg, fmt(wk_total) if wk_total > 0 else "$0")
+            + "<td class=\"r\" style=\"color:{};font-weight:700;font-size:0.78rem\">{}</td>".format(
+                status_col, status_txt)
+            + "</tr>"
+        )
+    weekly_section = (
+        "<div style=\"padding:20px 36px 4px;\">"
+        "<div style=\"font-size:0.85rem;font-weight:700;margin-bottom:2px\">WEEKLY UNPAID — YEAR TO DATE</div>"
+        "<div style=\"font-size:0.68rem;color:var(--muted);margin-bottom:8px\">Live values — green rows confirm invoices are paid. Red means still outstanding.</div>"
+        "</div>"
+        "<div style=\"padding:0 36px 36px;\"><div style=\"overflow-x:auto\"><table>"
+        + wk_header + wk_rows_html
+        + "</table></div></div>"
+    ) if all_weeks else ""
     return (
         section_header
         + summary_bar
@@ -1590,6 +1663,7 @@ def build_unpaid_history_section(loc_filter=None):
           "<div style=\"overflow-x:auto\"><table>"
         + header + rows_html
         + "</table></div></div>"
+        + weekly_section
     )
 
 def build_command_center_tab(loc_filter=None):
