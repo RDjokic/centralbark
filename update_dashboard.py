@@ -410,7 +410,7 @@ for name, cid, bid in LOCS:
             mem_clients.add(cid_val)
     rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
     membership_conv[name] = {"total": len(total_clients), "members": len(mem_clients), "rate": rate}
-    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%) [total items={len(all_rows)}]")
+    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%)")
 log("Membership conversion complete.")
 
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
@@ -1520,11 +1520,25 @@ def build_unpaid_history_section(loc_filter=None):
         "{icon} {text}</div>".format(bg=summary_bg, bd=summary_border, col=summary_col,
                                      icon=summary_icon, text=summary_text)
     )
+    # Pinned "Last Week" row from lw_totals
+    lw_row = ""
+    lw_total = sum(lw_totals.get(n, {}).get("unpaid", 0) for n in locs_to_show)
+    if lw_total > 0 or any(lw_totals.get(n, {}).get("unpaid", 0) > 0 for n in locs_to_show):
+        lw_cells = ""
+        for name in locs_to_show:
+            val = lw_totals.get(name, {}).get("unpaid", 0)
+            bg  = "#fef2f2" if val > 0 else "#f0fdf4"
+            lw_cells += "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(bg, fmt(val) if val > 0 else "$0")
+        lw_bg = "#fef2f2" if lw_total > 0 else "#f0fdf4"
+        lw_row = ("<tr style=\"font-style:italic;color:#555;border-bottom:2px solid #ddd\">"
+                  "<td>Last Wk</td>" + lw_cells
+                  + "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(lw_bg, fmt(lw_total) if lw_total > 0 else "$0")
+                  + "<td class=\"r\" style=\"color:var(--muted)\">&#9654;</td></tr>")
     header = "<tr><th>Date</th>"
     for name in locs_to_show:
         header += "<th class=\"r\">" + LOC_ABBREV.get(name, name) + "</th>"
     header += "<th class=\"r\">Total</th><th class=\"r\">Trend</th></tr>"
-    rows_html  = ""
+    rows_html  = lw_row
     prev_total = None
     for date_str in recent_dates:
         day_data = unpaid_history.get(date_str, {})
@@ -1702,10 +1716,15 @@ def build_command_center_tab(loc_filter=None):
             days_elapsed_q1 = max(90 - days_left_q1, 1)
             daily_avg_q1 = ty_qtd / days_elapsed_q1 if ty_qtd > 0 else 0
             projected_q1  = ty_qtd + (daily_avg_q1 * days_left_q1)
+            pace_pct = min(days_elapsed_q1 / 90 * 100, 100)
+            pace_bar = ("<div style=\"height:8px;background:#e2e2d8;border-radius:4px;overflow:hidden;margin:8px 0\">"
+                        "<div style=\"height:8px;background:{};width:{:.1f}%;\"></div></div>".format(c, pace_pct))
             body=(
-                "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">NEW LOCATION</div>"
+                "<div style=\"font-size:0.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px\">NEW LOCATION &mdash; Q1 PACE</div>"
+                +"<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:4px\">"+(fmt(daily_avg_q1) if daily_avg_q1>0 else "—")+"</div>"
+                +"<div style=\"font-size:0.7rem;color:var(--muted);margin-bottom:4px\">Daily avg &bull; {:.0f} days elapsed</div>".format(days_elapsed_q1)
+                +pace_bar
                 +row("QTD Revenue", fmt(ty_qtd) if ty_qtd>0 else "—")
-                +row("Daily Avg", fmt(daily_avg_q1) if daily_avg_q1>0 else "—")
                 +row("Projected Q1", fmt(projected_q1) if projected_q1>0 else "—")
                 +row("Days Left", str(days_left_q1))
                 +"<div style=\"font-size:0.68rem;color:var(--muted);margin-top:8px;font-style:italic\">Bonus target set Q1 2027</div>"
