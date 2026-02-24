@@ -207,7 +207,7 @@ for name, cid, bid in LOCS:
         rd   = row["data"]
         date = rd.get("checkout_date",{}).get("value",{}).get("string","")
         care = rd.get("care_type",{}).get("value",{}).get("string","")
-        amt  = money(rd,"total_collected")
+        amt  = money(rd,"total_net_sale")
         if date not in revenue[name]:
             revenue[name][date] = {}
         revenue[name][date][care] = revenue[name][date].get(care,0) + amt
@@ -215,7 +215,7 @@ for name, cid, bid in LOCS:
     for row in d.get("tableData",{}).get("rows",[]):
         rd   = row["data"]
         date = rd.get("sale_datetime",{}).get("value",{}).get("string","")
-        totals[name][date] = {"expected":money(rd,"total_expected"),"collected":money(rd,"total_collected"),"unpaid":money(rd,"outstanding_balance"),"tips":money(rd,"total_tips")}
+        totals[name][date] = {"expected":money(rd,"total_net_sale"),"collected":money(rd,"total_collected"),"unpaid":money(rd,"outstanding_balance"),"tips":money(rd,"total_tips")}
     for label,report_id,date_key in [("DAYCARE","reports_daycare_appointment_list","appointment_start_date"),("BOARDING","reports_boarding_appointment_list","appointment_start_date"),("GROOMING","reports_appointment_list","appointment_date")]:
         total, by_day = fetch_pages(cid, bid, report_id, date_key, START, END)
         counts[name][label] = {"TOTAL": total}
@@ -258,11 +258,11 @@ for name, cid, bid in LOCS:
                 from datetime import datetime as dt2
                 row_date = dt2.strptime(date_str, "%m/%d/%Y")
                 if row_date.weekday() <= today.weekday() or row_date.weekday() == 6:
-                    total_lw += money(rd,"total_expected")
+                    total_lw += money(rd,"total_net_sale")
             except:
-                total_lw += money(rd,"total_expected")
+                total_lw += money(rd,"total_net_sale")
         # Full week totals (all 7 days) for Week Review
-        lw_exp  += money(rd,"total_expected")
+        lw_exp  += money(rd,"total_net_sale")
         lw_col  += money(rd,"total_collected")
         lw_unp  += money(rd,"outstanding_balance")
         lw_tips += money(rd,"total_tips")
@@ -524,15 +524,16 @@ for name, cid, bid in LOCS:
     log(f"  Cancellations {name}: Grooming {gr_cancel}/{gr_total} ({cancel_data[name]['gr_rate']}%) Daycare {dc_cancel}/{dc_total} ({cancel_data[name]['dc_rate']}%) | SNP+DNP total: {snp_dnp_total}")
 log("Cancellation data complete.")
 
-# Q1 Bonus Tracker
+# Q1 Bonus Tracker (ly_full auto-computed from API on net sales basis)
 BONUS_TARGETS = {
-    "Wauwatosa":          {"pct": 0.07, "ly_full": 404791.49},
-    "Milwaukee Downtown": {"pct": 0.07, "ly_full": 212902.65},
-    "Grayslake":          {"pct": 0.10, "ly_full": 287057.97},
-    "Milwaukee Eastside": {"pct": 0.07, "ly_full": 255660.02},
-    "Mequon":             {"pct": 0.10, "ly_full":      0.00},
+    "Wauwatosa":          {"pct": 0.07},
+    "Milwaukee Downtown": {"pct": 0.07},
+    "Grayslake":          {"pct": 0.10},
+    "Milwaukee Eastside": {"pct": 0.07},
+    "Mequon":             {"pct": 0.10},
 }
-q1_ly_start = "2025-01-01T00:00:00Z"
+q1_ly_start    = "2025-01-01T00:00:00Z"
+q1_ly_full_end = "2025-03-31T23:59:59Z"
 q1_ly_same_end = today.replace(year=2025).strftime("%Y-%m-%dT23:59:59Z")
 q1_ty_start = "2026-01-01T00:00:00Z"
 q1_ty_end   = today.strftime("%Y-%m-%dT23:59:59Z")
@@ -541,10 +542,11 @@ days_left_q1 = (ddate(2026,3,31) - today.date()).days
 q1_data = {}
 for name, cid, bid in LOCS:
     d = api_post({"pagination":{"pageSize":100,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":q1_ly_start,"endTime":q1_ly_same_end},"groupByFieldKeys":["sale_datetime"]}})
-    ly_same = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
+    ly_same = sum(money(row["data"],"total_net_sale") for row in d.get("tableData",{}).get("rows",[]))
+    d = api_post({"pagination":{"pageSize":100,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":q1_ly_start,"endTime":q1_ly_full_end},"groupByFieldKeys":["sale_datetime"]}})
+    ly_full  = sum(money(row["data"],"total_net_sale") for row in d.get("tableData",{}).get("rows",[]))
     d = api_post({"pagination":{"pageSize":100,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":q1_ty_start,"endTime":q1_ty_end},"groupByFieldKeys":["sale_datetime"]}})
-    ty_qtd = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
-    ly_full  = BONUS_TARGETS[name]["ly_full"]
+    ty_qtd = sum(money(row["data"],"total_net_sale") for row in d.get("tableData",{}).get("rows",[]))
     pct      = BONUS_TARGETS[name]["pct"]
     target_q = ly_full * (1 + pct)
     gap      = max(target_q - ty_qtd, 0)
@@ -597,7 +599,7 @@ def build_card(name, cid, bid):
     return ("<div class=\"card\" style=\"--accent:" + c + ";" + op + "\">" +
             "<div class=\"card-name\">" + name + "</div>" +
             "<div class=\"card-rev\">" + fmt(exp) + "</div>" +
-            "<div class=\"card-revlbl\">Week Expected (WTD)</div>" +
+            "<div class=\"card-revlbl\">Net Sales (WTD)</div>" +
             "<div class=\"kpi\"><span class=\"kpi-l\">Collected</span><span class=\"kpi-v " + cc + "\">" + fmt(col2) + "</span></div>" +
             "<div class=\"kpi\"><span class=\"kpi-l\">Unpaid</span><span class=\"kpi-v " + uc + "\">" + fmt(unp) + "</span></div>" +
             "<div class=\"kpi\"><span class=\"kpi-l\">Tips</span><span class=\"kpi-v\">" + fmt(tips) + "</span></div>" +
@@ -770,7 +772,7 @@ ytd_data = {}
 ytd_unpaid_weekly = {}
 for name, cid, bid in LOCS:
     d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":TY_YTD_START,"endTime":TY_YTD_END},"groupByFieldKeys":["sale_datetime"]}})
-    ty_ytd = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
+    ty_ytd = sum(money(row["data"],"total_net_sale") for row in d.get("tableData",{}).get("rows",[]))
     # Capture weekly unpaid from this query (no extra API calls)
     ytd_unpaid_weekly[name] = {}
     _wk_cutoff = week_sun.strftime("%Y-%m-%d")
@@ -788,9 +790,9 @@ for name, cid, bid in LOCS:
         except:
             pass
     d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":LY_YTD_START,"endTime":LY_YTD_END},"groupByFieldKeys":["sale_datetime"]}})
-    ly_ytd = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
+    ly_ytd = sum(money(row["data"],"total_net_sale") for row in d.get("tableData",{}).get("rows",[]))
     d = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_sales_summary","queryPeriod":{"startTime":LY_FULL_START,"endTime":LY_FULL_END},"groupByFieldKeys":["sale_datetime"]}})
-    ly_full = sum(money(row["data"],"total_expected") for row in d.get("tableData",{}).get("rows",[]))
+    ly_full = sum(money(row["data"],"total_net_sale") for row in d.get("tableData",{}).get("rows",[]))
     diff = ty_ytd - ly_ytd
     pct  = (diff/ly_ytd*100) if ly_ytd>0 else 0
     LY_MONTHLY_PCT = {1:0.069,2:0.070,3:0.090,4:0.076,5:0.081,6:0.092,7:0.083,8:0.085,9:0.090,10:0.097,11:0.077,12:0.091}
@@ -2039,7 +2041,7 @@ def build_exec_tab(loc_filter=None):
     return (
         al +
         "<div class=\"exec-summary\">"
-        "<div class=\"exec-stat\"><div class=\"v green\">"+fmt(ge)+"</div><div class=\"l\">Week Expected</div></div>"
+        "<div class=\"exec-stat\"><div class=\"v green\">"+fmt(ge)+"</div><div class=\"l\">Net Sales</div></div>"
         "<div class=\"exec-stat\"><div class=\"v "+uc+"\">"+fmt(gu)+"</div><div class=\"l\">Unpaid</div></div>"
         "<div class=\"exec-stat\"><div class=\"v\">"+""+"{:,}".format(dc)+"</div><div class=\"l\">Daycare Dogs</div></div>"
         "<div class=\"exec-stat\"><div class=\"v\">"+""+"{:,}".format(bo)+"</div><div class=\"l\">Boarding Dogs</div></div>"
@@ -2151,7 +2153,7 @@ def build_full_tab(loc_filter=None):
 
     return (
         "<div class=\"summary\">"
-        "<div class=\"sstat\"><div class=\"v green\">"+fmt(ge)+"</div><div class=\"l\">Week Expected</div></div>"
+        "<div class=\"sstat\"><div class=\"v green\">"+fmt(ge)+"</div><div class=\"l\">Net Sales</div></div>"
         "<div class=\"sstat\"><div class=\"v "+uc+"\">"+fmt(gu)+"</div><div class=\"l\">Total Unpaid</div></div>"
         "<div class=\"sstat\"><div class=\"v\">"+"{:,}".format(dc)+"</div><div class=\"l\">Daycare Dogs</div></div>"
         "<div class=\"sstat\"><div class=\"v\">"+"{:,}".format(bo)+"</div><div class=\"l\">Boarding Dogs</div></div>"
@@ -2167,7 +2169,7 @@ def build_full_tab(loc_filter=None):
         "<table><thead><tr><th>Location</th><th></th>"+day_headers+"<th class=\"r\">WTD Total</th></tr></thead>"
         "<tbody>"+cr+"</tbody></table></div>"
         "<div class=\"section\"><div class=\"section-title\">Unpaid Balances</div>"
-        "<table><thead><tr><th>Location</th><th class=\"r\">Expected</th><th class=\"r\">Collected</th><th class=\"r\">Unpaid</th><th class=\"r\">Tips WTD</th></tr></thead>"
+        "<table><thead><tr><th>Location</th><th class=\"r\">Net Sales</th><th class=\"r\">Collected</th><th class=\"r\">Unpaid</th><th class=\"r\">Tips WTD</th></tr></thead>"
         "<tbody>"+ur+"</tbody></table></div>"
         "<div class=\"section\"><div class=\"section-title\">Q1 2026 GM Bonus Tracker</div>"
         "<table><thead><tr><th>Location</th><th class=\"r\">Q1 2025 Full</th><th class=\"r\">Q1 Target</th><th class=\"r\">LY Same Days</th><th class=\"r\">Q1 2026 QTD</th><th class=\"r\">vs LY Pace</th><th class=\"r\">Gap to Bonus</th><th>Progress</th></tr></thead>"
@@ -2403,7 +2405,7 @@ def build_weekly_summary_tab(loc_filter=None):
         "<div class=\"section\" style=\"padding:18px 36px;\"><div class=\"section-title\">Weekly Summary \u2014 Week of "+sw_label+"</div></div>"
         +
         "<div class=\"section\"><div class=\"section-title\">Revenue</div>"
-        "<table><thead><tr><th>Location</th><th class=\"r\">Expected</th><th class=\"r\">Collected</th><th class=\"r\">Unpaid</th><th class=\"r\">Tips</th></tr></thead>"
+        "<table><thead><tr><th>Location</th><th class=\"r\">Net Sales</th><th class=\"r\">Collected</th><th class=\"r\">Unpaid</th><th class=\"r\">Tips</th></tr></thead>"
         "<tbody>"+rev_rows_s+"</tbody></table></div>"
         "<div class=\"section\"><div class=\"section-title\">YTD vs Last Year</div>"
         "<table><thead><tr><th>Location</th><th class=\"r\">2026 YTD</th><th class=\"r\">2025 Same Days</th><th class=\"r\">Growth</th></tr></thead>"
