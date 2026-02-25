@@ -226,17 +226,16 @@ for name, cid, bid in LOCS:
         counts[name][label] = {"TOTAL": total}
         counts[name][label].update(by_day)
         log("  " + label + ": " + str(total))
-    # SNP from boarding list - filter by service containing SNP/Stay & Play keywords
+    # SNP from boarding list - match "Stay-n-Play" service name exactly (as shown in MoeGo UI)
     snp_rows = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_boarding_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
-    SNP_KEYWORDS = ["SNP","STAY","PLAY","S&P","STAY &","STAY AND","STAY N"]
     snp_by_day = {}
     snp_total = 0
     for row in snp_rows.get("tableData",{}).get("rows",[]):
         rd = row.get("data",{})
-        service = str(rd.get("service_type",rd.get("service",rd.get("type",{}))).get("value",{}).get("string","")).upper()
-        lodging = str(rd.get("lodgings",rd.get("lodging_type",rd.get("lodging",{}))).get("value",{}).get("string","")).upper()
-        combined = service + " " + lodging
-        if any(kw in combined for kw in SNP_KEYWORDS):
+        svc     = str(rd.get("service",rd.get("service_type",rd.get("type",{}))).get("value",{}).get("string","")).lower()
+        lodging = str(rd.get("lodgings",{}).get("value",{}).get("string","")).lower()
+        status  = str(rd.get("appointment_status",{}).get("value",{}).get("string",""))
+        if ("stay-n-play" in svc or lodging.startswith("snp")) and status not in ["Cancelled","No-show"]:
             snp_total += 1
             _dv = rd.get("appointment_start_date",{}).get("value",{})
             _ts = _dv.get("timestamp","")
@@ -377,60 +376,8 @@ for name, cid, bid in LOCS:
 log("Service mix complete.")
 
 # ── MEMBERSHIP CONVERSION ────────────────────────────────────────────────────
-log("Pulling membership conversion...")
+# Computed directly from service names in dc_rows (cancellations loop below)
 membership_conv = {}
-for name, cid, bid in LOCS:
-    all_rows, page = [], "1"
-    while True:
-        r = api_post({"pagination":{"pageSize":500,"pageToken":page},"companyId":cid,"businessIds":[bid],
-                      "condition":{"id":"reports_sales_invoice_item","queryPeriod":{"startTime":START,"endTime":END}}})
-        batch = r.get("tableData",{}).get("rows",[])
-        all_rows.extend(batch)
-        npt = r.get("nextPageToken","")
-        if not npt or npt == page or len(batch) < 500: break
-        page = npt
-    # Daycare-only membership conversion
-    # total_clients = clients who had a daycare appointment this week
-    # mem_clients   = of those, clients who redeemed a membership on any item
-    DAYCARE_CATS = {"daycare", "enrichment daycare", "enrichment add-on", "enrichment"}
-    daycare_clients = set()
-    all_mem_clients = set()
-    for row in all_rows:
-        rd = row["data"]
-        cid_val    = rd.get("client_id",{}).get("value",{}).get("string","")
-        if not cid_val: continue
-        booking_id = rd.get("booking_id",{}).get("value",{}).get("string","")
-        if not booking_id: continue
-        cat = rd.get("revenue_category",{}).get("value",{}).get("string","").lower()
-        if cat in DAYCARE_CATS:
-            daycare_clients.add(cid_val)
-        for fld in ["membership_redeemed_flag", "package_redeemed_flag"]:
-            fdata = rd.get(fld, {})
-            if not isinstance(fdata, dict): continue
-            fval    = fdata.get("value", {})
-            str_val = str(fval.get("string", "")).lower()
-            bool_val = fval.get("bool"); bool2 = fval.get("boolean")
-            if str_val in ["true","yes","1"] or bool_val is True or bool2 is True:
-                all_mem_clients.add(cid_val)
-                break
-    # Fallback: if no daycare categories found (e.g. new location with uncategorized items),
-    # use all booking-id clients as the total (best available approximation)
-    if not daycare_clients:
-        all_booking_clients = set(
-            row["data"].get("client_id",{}).get("value",{}).get("string","")
-            for row in all_rows
-            if row["data"].get("booking_id",{}).get("value",{}).get("string","")
-               and row["data"].get("client_id",{}).get("value",{}).get("string","")
-        )
-        total_clients = all_booking_clients
-        mem_clients   = all_booking_clients & all_mem_clients
-    else:
-        total_clients = daycare_clients
-        mem_clients   = daycare_clients & all_mem_clients
-    rate = round(len(mem_clients)/len(total_clients)*100,1) if total_clients else 0
-    membership_conv[name] = {"total": len(total_clients), "members": len(mem_clients), "rate": rate}
-    log(f"  Membership {name}: {len(mem_clients)}/{len(total_clients)} ({rate}%) [daycare only]")
-log("Membership conversion complete.")
 
 # ── CLIENT RETENTION ─────────────────────────────────────────────────────────
 log("Pulling client retention...")
@@ -503,22 +450,35 @@ for name, cid, bid in LOCS:
     dc_total  = len(dc_rows)
     dc_cancel = sum(1 for r in dc_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") == "Cancelled")
 
-    # Merge Day-N-Play into SNP counts (DNP is a daycare appointment, not boarding)
+    # Service breakdown from appointment list — exact match to MoeGo "View Service Summary"
+    # Populates membership_conv and merges DNP into SNP counts
+    svc_member = svc_nonmember = svc_dnp = svc_employee = 0
     for row in dc_rows:
         rd = row["data"]
-        svc    = str(rd.get("service",{}).get("value",{}).get("string","")).upper()
+        svc    = str(rd.get("service",{}).get("value",{}).get("string",""))
         status = str(rd.get("appointment_status",{}).get("value",{}).get("string",""))
-        if "DAY-N-PLAY" in svc and status not in ["Cancelled","No-show"]:
-            _dv = rd.get("appointment_start_date",{}).get("value",{})
-            _ts = _dv.get("timestamp","")
-            date_val = _dv.get("string","") or (_ts[5:7]+"/"+_ts[8:10]+"/"+_ts[:4] if _ts else "")
+        if status in ["Cancelled","No-show"]:
+            continue
+        svc_lower = svc.lower()
+        _dv = rd.get("appointment_start_date",{}).get("value",{})
+        _ts = _dv.get("timestamp","")
+        date_val = _dv.get("string","") or (_ts[5:7]+"/"+_ts[8:10]+"/"+_ts[:4] if _ts else "")
+        if "day-n-play" in svc_lower:
+            svc_dnp += 1
             if date_val:
                 counts[name]["SNP"][date_val] = counts[name]["SNP"].get(date_val, 0) + 1
                 counts[name]["SNP"]["TOTAL"]  = counts[name]["SNP"].get("TOTAL", 0) + 1
-
-    dnp_added = sum(1 for r in dc_rows
-                    if "DAY-N-PLAY" in str(r["data"].get("service",{}).get("value",{}).get("string","")).upper()
-                    and str(r["data"].get("appointment_status",{}).get("value",{}).get("string","")) not in ["Cancelled","No-show"])
+        elif "employee" in svc_lower:
+            svc_employee += 1
+        elif "(non-member)" in svc_lower:
+            svc_nonmember += 1
+        elif "(member)" in svc_lower:
+            svc_member += 1
+    mem_total = svc_member + svc_nonmember
+    mem_rate  = round(svc_member / mem_total * 100, 1) if mem_total > 0 else 0
+    membership_conv[name] = {"total": mem_total, "members": svc_member, "nonmember": svc_nonmember,
+                             "dnp": svc_dnp, "employee": svc_employee, "rate": mem_rate}
+    dnp_added = svc_dnp
     cancel_data[name] = {
         "gr_total": gr_total, "gr_cancel": gr_cancel, "gr_noshow": gr_noshow,
         "gr_rate": round(gr_cancel/gr_total*100,1) if gr_total else 0,
@@ -1885,13 +1845,17 @@ def build_command_center_tab(loc_filter=None):
         mc = membership_conv.get(name, {})
         rate = mc.get("rate", 0)
         members = mc.get("members", 0)
+        nonmember = mc.get("nonmember", 0)
+        dnp = mc.get("dnp", 0)
+        employee = mc.get("employee", 0)
         total = mc.get("total", 0)
         rate_col = "#16a34a" if rate >= 50 else "#d97706" if rate >= 25 else "#dc2626"
         body = (
             "<div style=\"font-size:1.5rem;font-weight:800;font-family:'DM Mono',monospace;color:"+rate_col+";margin-bottom:8px\">{:.1f}%</div>".format(rate)
-            +row("Daycare Members WTD", str(members))
-            +row("Daycare Clients WTD", str(total))
-            +row("Non-Member Daycare", str(total - members))
+            +row("Members (Enrichment DC)", str(members))
+            +row("Non-Members", str(nonmember))
+            +row("Day-n-Play", str(dnp))
+            +(row("Employee DC", str(employee)) if employee > 0 else "")
         )
         mem_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
