@@ -140,7 +140,9 @@ def gn(rd, key):
     try: return int(float(str(val)))
     except: return 0
 
-today = datetime.now()
+from datetime import timezone
+CST = timezone(timedelta(hours=-6))
+today = datetime.now(CST).replace(tzinfo=None)
 days_since_sun = (today.weekday() + 1) % 7
 week_sun = (today - timedelta(days=days_since_sun)).replace(hour=0,minute=0,second=0,microsecond=0)
 week_sat = week_sun + timedelta(days=6,hours=23,minutes=59,seconds=59)
