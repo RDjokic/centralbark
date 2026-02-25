@@ -113,7 +113,7 @@ def api_post(payload):
     )
     return json.loads(r.stdout)
 
-def fetch_pages(cid, bid, report_id, date_key, start, end):
+def fetch_pages(cid, bid, report_id, date_key, start, end, exclude_statuses=None):
     all_rows, page = [], "1"
     while True:
         d = api_post({"pagination":{"pageSize":500,"pageToken":page},"companyId":cid,"businessIds":[bid],"condition":{"id":report_id,"queryPeriod":{"startTime":start,"endTime":end}}})
@@ -123,6 +123,8 @@ def fetch_pages(cid, bid, report_id, date_key, start, end):
         if not npt or npt == page or len(rows) < 500:
             break
         page = npt
+    if exclude_statuses:
+        all_rows = [r for r in all_rows if r["data"].get("appointment_status",{}).get("value",{}).get("string","") not in exclude_statuses]
     by_day = {}
     for row in all_rows:
         val = row["data"].get(date_key,{}).get("value",{})
@@ -222,7 +224,7 @@ for name, cid, bid in LOCS:
         date = rd.get("sale_datetime",{}).get("value",{}).get("string","")
         totals[name][date] = {"expected":money(rd,"total_net_sale"),"collected":money(rd,"total_collected"),"unpaid":money(rd,"outstanding_balance"),"tips":money(rd,"total_tips")}
     for label,report_id,date_key in [("DAYCARE","reports_daycare_appointment_list","appointment_start_date"),("BOARDING","reports_boarding_appointment_list","appointment_start_date"),("GROOMING","reports_appointment_list","appointment_date")]:
-        total, by_day = fetch_pages(cid, bid, report_id, date_key, START, END)
+        total, by_day = fetch_pages(cid, bid, report_id, date_key, START, END, exclude_statuses=["Cancelled","No-show"])
         counts[name][label] = {"TOTAL": total}
         counts[name][label].update(by_day)
         log("  " + label + ": " + str(total))
@@ -844,13 +846,41 @@ def day_range(d):
     """Return (start_str, end_str) for a single date."""
     return (d.strftime("%Y-%m-%dT00:00:00Z"), d.strftime("%Y-%m-%dT23:59:59Z"))
 
-def count_day(cid, bid, d, report_id):
+def count_day(cid, bid, d, report_id, exclude_statuses=None):
     """Pull appointment count for a single day."""
     s, e = day_range(d)
     r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},
                   "companyId":cid,"businessIds":[bid],
                   "condition":{"id":report_id,"queryPeriod":{"startTime":s,"endTime":e}}})
-    return len(r.get("tableData",{}).get("rows",[]))
+    rows = r.get("tableData",{}).get("rows",[])
+    if exclude_statuses:
+        rows = [row for row in rows if row["data"].get("appointment_status",{}).get("value",{}).get("string","") not in exclude_statuses]
+    return len(rows)
+
+def count_boarding_present(cid, bid, d):
+    """Count boarding dogs physically present on date d (start_date <= d <= end_date)."""
+    s = (datetime.combine(d, datetime.min.time()) - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00Z")
+    e = d.strftime("%Y-%m-%dT23:59:59Z")
+    r = api_post({"pagination":{"pageSize":500,"pageToken":"1"},
+                  "companyId":cid,"businessIds":[bid],
+                  "condition":{"id":"reports_boarding_appointment_list","queryPeriod":{"startTime":s,"endTime":e}}})
+    count = 0
+    for row in r.get("tableData",{}).get("rows",[]):
+        rd = row["data"]
+        if rd.get("appointment_status",{}).get("value",{}).get("string","") in ["Cancelled","No-show"]:
+            continue
+        start_ts = rd.get("appointment_start_date",{}).get("value",{}).get("timestamp","")
+        end_ts   = rd.get("appointment_end_date",{}).get("value",{}).get("timestamp","")
+        if not start_ts:
+            continue
+        try:
+            start_dt = datetime.strptime(start_ts[:10], "%Y-%m-%d").date()
+            end_dt   = datetime.strptime(end_ts[:10], "%Y-%m-%d").date() if end_ts else start_dt
+            if start_dt <= d <= end_dt:
+                count += 1
+        except:
+            pass
+    return count
 
 def retail_day(cid, bid, d):
     """Pull retail revenue for a single day."""
@@ -884,14 +914,14 @@ last_5_same_dow = [today_d - _td(weeks=i) for i in range(1, 6)]
 
 scorecard = {}
 for name, cid, bid in LOCS:
-    def pull_day(d):
-        dc  = count_day(cid, bid, d, "reports_daycare_appointment_list")
-        bo  = count_day(cid, bid, d, "reports_boarding_appointment_list")
-        gr  = count_day(cid, bid, d, "reports_appointment_list")
+    def pull_day(d, bo_present=False):
+        dc  = count_day(cid, bid, d, "reports_daycare_appointment_list", exclude_statuses=["Cancelled","No-show"])
+        bo  = count_boarding_present(cid, bid, d) if bo_present else count_day(cid, bid, d, "reports_boarding_appointment_list", exclude_statuses=["Cancelled","No-show"])
+        gr  = count_day(cid, bid, d, "reports_appointment_list", exclude_statuses=["Cancelled","No-show"])
         ret = retail_day(cid, bid, d)
         return {"dc":dc, "bo":bo, "gr":gr, "retail":ret}
 
-    today_data = pull_day(today_d)
+    today_data = pull_day(today_d, bo_present=True)
     lw_data    = pull_day(same_day_last_week)
     lm_data    = pull_day(same_day_last_month)
     ly_data    = pull_day(same_dow_last_year)
@@ -915,9 +945,8 @@ log("Pulling tomorrow's bookings...")
 tomorrow_d = today_d + _td(days=1)
 tomorrow_counts = {}
 for name, cid, bid in LOCS:
-    dc = count_day(cid, bid, tomorrow_d, "reports_daycare_appointment_list")
-    bo = count_day(cid, bid, tomorrow_d, "reports_boarding_appointment_list")
-    snp_tm_count = count_day(cid, bid, tomorrow_d, "reports_boarding_appointment_list")
+    dc = count_day(cid, bid, tomorrow_d, "reports_daycare_appointment_list", exclude_statuses=["Cancelled","No-show"])
+    bo = count_boarding_present(cid, bid, tomorrow_d)
     tomorrow_counts[name] = {"daycare": dc, "boarding": bo, "snp": 0}
     log(f"  Tomorrow {name}: DC={dc} BO={bo}")
 log("Tomorrow data complete.")
