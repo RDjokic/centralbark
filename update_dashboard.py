@@ -1730,7 +1730,7 @@ def build_command_center_tab(loc_filter=None):
         exp = loc_total(name,"expected"); lw = last_week_rev[name]
         dc_t = today_counts[name]["daycare"]; bo_t = today_counts[name]["boarding"]
         dogs = dc_t + bo_t
-        today_rev = sum(sum(revenue[name].get(adate(dk),{}).values()) for dk in DAY_KEYS[:today.weekday()+1])
+        today_rev = sum(sum(revenue[name].get(adate(dk),{}).values()) for dk in DAY_KEYS[:days_since_sun+1])
         # 4-week avg: average revenue on this same day of week over last 4 weeks
         same_dow_revs = []
         for wk in range(1,5):
@@ -1873,7 +1873,8 @@ def build_command_center_tab(loc_filter=None):
         gro_cards += card(c, name, body, flagged=bool(red_flags.get(name, [])))
 
     # Summary totals bar
-    total_rev = sum(loc_total(n,"expected") for n,_,_ in LOCS)
+    # Use reports_daily_sales (revenue dict) for WTD — updates intraday as services complete
+    total_rev = sum(sum(sum(revenue[n].get(adate(dk),{}).values()) for dk in DAY_KEYS[:days_since_sun+1]) for n,_,_ in LOCS)
     total_today = sum(sum(revenue[n].get("{:02d}/{:02d}/{}".format(today_d.month,today_d.day,today_d.year),{}).values()) for n,_,_ in LOCS)
     total_dogs = sum(counts[n].get("DAYCARE",{}).get("TOTAL",0)+counts[n].get("BOARDING",{}).get("TOTAL",0) for n,_,_ in LOCS)
     total_unp = sum(loc_total(n,"unpaid") for n,_,_ in LOCS)
