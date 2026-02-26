@@ -482,6 +482,9 @@ for name, cid, bid in LOCS:
             if date_val:
                 counts[name]["SNP"][date_val] = counts[name]["SNP"].get(date_val, 0) + 1
                 counts[name]["SNP"]["TOTAL"]  = counts[name]["SNP"].get("TOTAL", 0) + 1
+                # Track DNP separately so we can add to next day's daycare count
+                if "DNP" not in counts[name]: counts[name]["DNP"] = {}
+                counts[name]["DNP"][date_val] = counts[name]["DNP"].get(date_val, 0) + 1
         elif "employee" in svc_lower:
             svc_employee += 1
         elif "(non-member)" in svc_lower:
@@ -952,10 +955,17 @@ for name, cid, bid in LOCS:
     log(f"  Scorecard {name}: DC={today_data['dc']} BO={today_data['bo']} GR={today_data['gr']} Retail={fmt(today_data['retail'])}")
 
 log("Scorecard data complete.")
-# Override today_counts boarding and SNP with accurate present-day counts
+# Override today_counts with accurate present-day counts
+_yesterday_d = today_d - _td(days=1)
+_yk  = "{:02d}/{:02d}/{}".format(_yesterday_d.month, _yesterday_d.day, _yesterday_d.year)
+_yk2 = "{}/{}/{}".format(_yesterday_d.month, _yesterday_d.day, _yesterday_d.year)
 for name, _, _ in LOCS:
     today_counts[name]["boarding"] = scorecard[name]["today"]["bo"]
     today_counts[name]["snp"] = counts[name]["SNP"].get("_present_today", today_counts[name]["snp"])
+    # Add yesterday's Day-n-Play dogs to today's daycare count (they slept over, present today)
+    _dnp = counts[name].get("DNP", {})
+    today_counts[name]["daycare"] += _dnp.get(_yk, _dnp.get(_yk2, 0))
+    today_counts[name]["dnp"] = _dnp.get(_yk, _dnp.get(_yk2, 0))
 # ── TOMORROW DATA PULL ─────────────────────────────────────────────────────────
 log("Pulling tomorrow's bookings...")
 tomorrow_d = today_d + _td(days=1)
@@ -1780,13 +1790,17 @@ def build_command_center_tab(loc_filter=None):
             col=cap_color(p)
             return "<span style=\"color:"+col+";font-weight:700\">"+str(v)+"/"+str(mx)+" ({:.0f}%)</span>".format(p)
         snp_t = today_counts[name].get("snp", 0)
+        dnp_t = today_counts[name].get("dnp", 0)
         snp_tm = 0  # SNP tomorrow not available from API
         snp_cap = cap.get("snp", 0)
+        def cv_plain(v):
+            return "<span style=\"font-weight:700\">"+str(v)+"</span>"
         body=(
             "<div style=\"font-size:1.5rem;font-weight:800;font-family:\'DM Mono\',monospace;color:"+c+";margin-bottom:8px\">{:.0f}%</div>".format(cap_pct(dc_t,cap["daycare"]))
             +"<div style=\"font-size:0.75rem;font-weight:900;color:#111;text-transform:uppercase;padding:4px 0\">TODAY</div>"
             +row("Daycare", cv(dc_t,cap["daycare"]))+row("Boarding", cv(bo_t,cap["boarding"]))
             +row("Stay & Play", cv(snp_t,snp_cap))
+            +(row("Day-n-Play", cv_plain(dnp_t)) if dnp_t > 0 else "")
             +"<div style=\"font-size:0.75rem;font-weight:900;color:#111;text-transform:uppercase;padding:4px 0\">TOMORROW</div>"
             +row("Daycare", cv(dc_tm,cap["daycare"]))+row("Boarding", cv(bo_tm,cap["boarding"]))+row("Stay & Play", cv(snp_tm,snp_cap))
         )
