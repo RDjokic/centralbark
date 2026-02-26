@@ -109,7 +109,7 @@ def api_post(payload):
          "-H", "Authorization: Basic " + API,
          "-H","Content-Type: application/json",
          "-d", json.dumps(payload)],
-        capture_output=True, text=True, timeout=90
+        capture_output=True, text=True, timeout=180
     )
     return json.loads(r.stdout)
 
