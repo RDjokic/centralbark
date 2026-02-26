@@ -232,6 +232,8 @@ for name, cid, bid in LOCS:
     snp_rows = api_post({"pagination":{"pageSize":500,"pageToken":"1"},"companyId":cid,"businessIds":[bid],"condition":{"id":"reports_boarding_appointment_list","queryPeriod":{"startTime":START,"endTime":END}}})
     snp_by_day = {}
     snp_total = 0
+    snp_present_today = 0
+    _today_date = today.date()
     for row in snp_rows.get("tableData",{}).get("rows",[]):
         rd = row.get("data",{})
         svc     = str(rd.get("service",rd.get("service_type",rd.get("type",{}))).get("value",{}).get("string","")).lower()
@@ -243,7 +245,17 @@ for name, cid, bid in LOCS:
             _ts = _dv.get("timestamp","")
             date_val = _dv.get("string","") or (_ts[5:7]+"/"+_ts[8:10]+"/"+_ts[:4] if _ts else "")
             if date_val: snp_by_day[date_val] = snp_by_day.get(date_val,0) + 1
-    counts[name]["SNP"] = {"TOTAL": snp_total}
+            # Check if present today (start_date <= today <= end_date)
+            _end_dv = rd.get("appointment_end_date",{}).get("value",{})
+            _end_ts = _end_dv.get("timestamp","")
+            try:
+                _start_dt = datetime.strptime(_ts[:10], "%Y-%m-%d").date() if _ts else None
+                _end_dt   = datetime.strptime(_end_ts[:10], "%Y-%m-%d").date() if _end_ts else _start_dt
+                if _start_dt and _start_dt <= _today_date <= (_end_dt or _start_dt):
+                    snp_present_today += 1
+            except:
+                pass
+    counts[name]["SNP"] = {"TOTAL": snp_total, "_present_today": snp_present_today}
     counts[name]["SNP"].update(snp_by_day)
     log("  SNP (boarding only): " + str(snp_total))
 
@@ -940,6 +952,10 @@ for name, cid, bid in LOCS:
     log(f"  Scorecard {name}: DC={today_data['dc']} BO={today_data['bo']} GR={today_data['gr']} Retail={fmt(today_data['retail'])}")
 
 log("Scorecard data complete.")
+# Override today_counts boarding and SNP with accurate present-day counts
+for name, _, _ in LOCS:
+    today_counts[name]["boarding"] = scorecard[name]["today"]["bo"]
+    today_counts[name]["snp"] = counts[name]["SNP"].get("_present_today", today_counts[name]["snp"])
 # ── TOMORROW DATA PULL ─────────────────────────────────────────────────────────
 log("Pulling tomorrow's bookings...")
 tomorrow_d = today_d + _td(days=1)
