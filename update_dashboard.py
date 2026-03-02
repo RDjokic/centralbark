@@ -1544,7 +1544,7 @@ def build_unpaid_history_section(loc_filter=None):
     section_header = (
         "<div style=\"padding:28px 36px 10px;\">"
         "<div style=\"font-size:1rem;font-weight:800\">&#128203; UNPAID BALANCE</div>"
-        "<div style=\"font-size:0.7rem;color:var(--muted)\">Current week WTD + YTD weekly running total</div>"
+        "<div style=\"font-size:0.7rem;color:var(--muted)\">Current week WTD + YTD total outstanding</div>"
         "</div>"
     )
     # ── Current week unpaid (WTD) ────────────────────────────────────────────
@@ -1565,48 +1565,22 @@ def build_unpaid_history_section(loc_filter=None):
                    tb, fmt(cur_total) if cur_total > 0 else "$0"))
     current_section = ("<div style=\"padding:0 36px 20px;\"><div style=\"overflow-x:auto\"><table>"
                        + hdr + cur_row + "</table></div></div>")
-    # ── Weekly YTD unpaid table ───────────────────────────────────────────────
-    all_weeks = sorted(set(wk for name in locs_to_show for wk in ytd_unpaid_weekly.get(name, {}).keys()))
-    lw_wk_key = last_sun.strftime("%Y-%m-%d")
-    if lw_wk_key not in all_weeks:
-        all_weeks = sorted(all_weeks + [lw_wk_key])
-    def wk_label(wk_key):
-        s = datetime.strptime(wk_key, "%Y-%m-%d")
-        return s.strftime("%b %-d") + "&ndash;" + (s + timedelta(days=6)).strftime("%b %-d")
-    wk_hdr = "<tr><th>Week</th>"
+    # ── YTD total unpaid (single row) ────────────────────────────────────────
+    ytd_cells = ""; ytd_total = 0.0
     for name in locs_to_show:
-        wk_hdr += "<th class=\"r\">" + LOC_ABBREV.get(name, name) + "</th>"
-    wk_hdr += "<th class=\"r\">Total</th><th class=\"r\">Status</th></tr>"
-    wk_rows = ""
-    for wk_key in all_weeks:
-        wk_cells = ""; wk_total = 0.0
-        for name in locs_to_show:
-            val = lw_totals.get(name, {}).get("unpaid", 0) if wk_key == lw_wk_key else ytd_unpaid_weekly.get(name, {}).get(wk_key, 0)
-            wk_total += val
-            bg = "#fef2f2" if val > 0 else "#f0fdf4"
-            wk_cells += "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(bg, fmt(val) if val > 0 else "$0")
-        wk_total = round(wk_total, 2)
-        tb2 = "#fef2f2" if wk_total > 0 else "#f0fdf4"
-        sc = "#dc2626" if wk_total > 0 else "#16a34a"
-        st = fmt(wk_total) + " outstanding" if wk_total > 0 else "&#10003; Paid"
-        is_lw = wk_key == lw_wk_key
-        rs = " style=\"font-style:italic;border-bottom:2px solid #ddd\"" if is_lw else ""
-        wk_rows += ("<tr{}>".format(rs)
-                    + "<td style=\"white-space:nowrap\">{}{}</td>".format(
-                        wk_label(wk_key),
-                        " <em style=\"color:var(--muted);font-size:0.7rem\">(last wk)</em>" if is_lw else "")
-                    + wk_cells
-                    + "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(tb2, fmt(wk_total) if wk_total > 0 else "$0")
-                    + "<td class=\"r\" style=\"color:{};font-weight:700;font-size:0.78rem\">{}</td></tr>".format(sc, st))
-    weekly_section = (
-        "<div style=\"padding:4px 36px 4px;\">"
-        "<div style=\"font-size:0.85rem;font-weight:700;margin-bottom:2px\">WEEKLY UNPAID — YEAR TO DATE</div>"
-        "<div style=\"font-size:0.68rem;color:var(--muted);margin-bottom:8px\">Green = paid, Red = still outstanding</div>"
-        "</div>"
-        "<div style=\"padding:0 36px 36px;\"><div style=\"overflow-x:auto\"><table>"
-        + wk_hdr + wk_rows + "</table></div></div>"
-    ) if all_weeks else ""
-    return section_header + current_section + weekly_section
+        val = round(sum(ytd_unpaid_weekly.get(name, {}).values()) + loc_total(name, "unpaid"), 2)
+        ytd_total += val
+        bg = "#fef2f2" if val > 0 else "#f0fdf4"
+        ytd_cells += "<td class=\"r mono\" style=\"background:{}\">{}</td>".format(bg, fmt(val) if val > 0 else "$0")
+    ytd_total = round(ytd_total, 2)
+    tb2 = "#fef2f2" if ytd_total > 0 else "#f0fdf4"
+    ytd_row = ("<tr><td>YTD Total</td>"
+               + ytd_cells
+               + "<td class=\"r mono\" style=\"background:{};font-weight:700\">{}</td></tr>".format(
+                   tb2, fmt(ytd_total) if ytd_total > 0 else "$0"))
+    ytd_section = ("<div style=\"padding:0 36px 36px;\"><div style=\"overflow-x:auto\"><table>"
+                   + hdr + ytd_row + "</table></div></div>")
+    return section_header + current_section + ytd_section
 
 
 def build_weekly_sales_table(loc_filter=None):
