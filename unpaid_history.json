@@ -1,46 +1,4 @@
 {
-  "2026-02-23": {
-    "Wauwatosa": 0.0,
-    "Milwaukee Downtown": 183.44,
-    "Grayslake": 0.0,
-    "Milwaukee Eastside": 0.0,
-    "Mequon": 54.08
-  },
-  "2026-02-24": {
-    "Wauwatosa": 45.54,
-    "Milwaukee Downtown": 0.0,
-    "Grayslake": 78.0,
-    "Milwaukee Eastside": 131.65,
-    "Mequon": 54.09
-  },
-  "2026-02-25": {
-    "Wauwatosa": 136.62,
-    "Milwaukee Downtown": 0.0,
-    "Grayslake": 204.0,
-    "Milwaukee Eastside": 217.98,
-    "Mequon": 54.09
-  },
-  "2026-02-26": {
-    "Wauwatosa": 136.62,
-    "Milwaukee Downtown": 0.0,
-    "Grayslake": 331.99,
-    "Milwaukee Eastside": 217.98,
-    "Mequon": 54.09
-  },
-  "2026-02-27": {
-    "Wauwatosa": 272.18,
-    "Milwaukee Downtown": 53.95,
-    "Grayslake": 271.99,
-    "Milwaukee Eastside": 385.37,
-    "Mequon": 54.09
-  },
-  "2026-02-28": {
-    "Wauwatosa": 182.16,
-    "Milwaukee Downtown": 0.0,
-    "Grayslake": 271.99,
-    "Milwaukee Eastside": 385.37,
-    "Mequon": 54.1
-  },
   "2026-03-01": {
     "Wauwatosa": 0,
     "Milwaukee Downtown": 0.0,
@@ -117,5 +75,12 @@
     "Grayslake": 0.0,
     "Milwaukee Eastside": 0.0,
     "Mequon": 1.7
+  },
+  "2026-03-31": {
+    "Wauwatosa": 0.0,
+    "Milwaukee Downtown": 97.12,
+    "Grayslake": 34.65,
+    "Milwaukee Eastside": 10.79,
+    "Mequon": 68.18
   }
 }
