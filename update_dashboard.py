@@ -920,8 +920,11 @@ def retail_day(cid, bid, d):
 
 # Reference dates
 same_day_last_week  = today_d - _td(weeks=1)
-same_day_last_month = today_d.replace(month=today_d.month-1 if today_d.month>1 else 12,
-                                       year=today_d.year if today_d.month>1 else today_d.year-1)
+_lm_month = today_d.month - 1 if today_d.month > 1 else 12
+_lm_year  = today_d.year if today_d.month > 1 else today_d.year - 1
+import calendar as _cal
+_lm_day   = min(today_d.day, _cal.monthrange(_lm_year, _lm_month)[1])
+same_day_last_month = today_d.replace(year=_lm_year, month=_lm_month, day=_lm_day)
 # Same day of week last year (closest same weekday)
 ly_approx = today_d.replace(year=today_d.year-1)
 ly_dow    = ly_approx.weekday()
