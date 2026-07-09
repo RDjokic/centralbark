@@ -1,11 +1,4 @@
 {
-  "2026-06-08": {
-    "Wauwatosa": 390.78,
-    "Milwaukee Downtown": 343.13,
-    "Grayslake": 96.0,
-    "Milwaukee Eastside": 340.57,
-    "Mequon": 136.11
-  },
   "2026-06-09": {
     "Wauwatosa": 436.32,
     "Milwaukee Downtown": 343.13,
@@ -211,6 +204,13 @@
   },
   "2026-07-08": {
     "Wauwatosa": 385.49,
+    "Milwaukee Downtown": 455.36,
+    "Grayslake": 96.0,
+    "Milwaukee Eastside": 331.8,
+    "Mequon": 136.11
+  },
+  "2026-07-09": {
+    "Wauwatosa": 431.03,
     "Milwaukee Downtown": 455.36,
     "Grayslake": 96.0,
     "Milwaukee Eastside": 331.8,
