@@ -71607,3 +71607,122 @@
 [2026-09-22 07:29:56] Dashboard saved to /home/runner/work/centralbark/centralbark/central_bark_dashboard.html
 [2026-09-22 07:29:56] GitHub push failed: Command '['git', '-C', '/home/runner/work/centralbark/centralbark', 'commit', '-m', 'dashboard update Sep 22, 2026 at 02:26 AM']' returned non-zero exit status 128.
 [2026-09-22 07:29:56] Done.
+[2026-09-23 00:30:09] Starting update - week Sep 20–Sep 26, 2026
+[2026-09-23 00:30:09] Pulling Wauwatosa...
+[2026-09-23 00:30:14]   DAYCARE: 520
+[2026-09-23 00:30:15]   BOARDING: 24
+[2026-09-23 00:30:16]   GROOMING: 69
+[2026-09-23 00:30:17]   SNP (boarding only): 7
+[2026-09-23 00:30:17] Pulling Milwaukee Downtown...
+[2026-09-23 00:30:20]   DAYCARE: 187
+[2026-09-23 00:30:20]   BOARDING: 9
+[2026-09-23 00:30:21]   GROOMING: 26
+[2026-09-23 00:30:22]   SNP (boarding only): 5
+[2026-09-23 00:30:22] Pulling Grayslake...
+[2026-09-23 00:30:26]   DAYCARE: 333
+[2026-09-23 00:30:26]   BOARDING: 16
+[2026-09-23 00:30:27]   GROOMING: 57
+[2026-09-23 00:30:29]   SNP (boarding only): 3
+[2026-09-23 00:30:29] Pulling Milwaukee Eastside...
+[2026-09-23 00:30:32]   DAYCARE: 281
+[2026-09-23 00:30:33]   BOARDING: 12
+[2026-09-23 00:30:34]   GROOMING: 44
+[2026-09-23 00:30:34]   SNP (boarding only): 2
+[2026-09-23 00:30:34] Pulling Mequon...
+[2026-09-23 00:30:38]   DAYCARE: 424
+[2026-09-23 00:30:39]   BOARDING: 26
+[2026-09-23 00:30:40]   GROOMING: 43
+[2026-09-23 00:30:40]   SNP (boarding only): 3
+[2026-09-23 00:30:40] Pulling last week + clients + boarding nights...
+[2026-09-23 00:30:42]   Last week Wauwatosa: $23,346.29
+[2026-09-23 00:30:43]   Last week Milwaukee Downtown: $10,401.03
+[2026-09-23 00:30:44]   Last week Grayslake: $17,731.61
+[2026-09-23 00:30:45]   Last week Milwaukee Eastside: $15,352.12
+[2026-09-23 00:30:46]   Last week Mequon: $22,229.08
+[2026-09-23 00:30:47]   Clients Wauwatosa: new=1 total=206
+[2026-09-23 00:30:48]   Clients Milwaukee Downtown: new=2 total=64
+[2026-09-23 00:30:49]   Clients Grayslake: new=0 total=129
+[2026-09-23 00:30:50]   Clients Milwaukee Eastside: new=0 total=97
+[2026-09-23 00:30:52]   Clients Mequon: new=1 total=159
+[2026-09-23 00:30:52]   Boarding Wauwatosa: 25 dogs, 133 nights
+[2026-09-23 00:30:53]   Boarding Milwaukee Downtown: 9 dogs, 18 nights
+[2026-09-23 00:30:53]   Boarding Grayslake: 17 dogs, 47 nights
+[2026-09-23 00:30:54]   Boarding Milwaukee Eastside: 12 dogs, 28 nights
+[2026-09-23 00:30:55]   Boarding Mequon: 26 dogs, 71 nights
+[2026-09-23 00:30:55] Pulling staff performance...
+[2026-09-23 00:30:56]   Staff Wauwatosa: 6 groomers
+[2026-09-23 00:30:56]   Staff Milwaukee Downtown: 4 groomers
+[2026-09-23 00:30:57]   Staff Grayslake: 10 groomers
+[2026-09-23 00:30:58]   Staff Milwaukee Eastside: 7 groomers
+[2026-09-23 00:30:59]   Staff Mequon: 10 groomers
+[2026-09-23 00:30:59] Staff data complete.
+[2026-09-23 00:30:59] Pulling review scores...
+[2026-09-23 00:31:00]   Reviews Wauwatosa: avg=0 n=0
+[2026-09-23 00:31:01]   Reviews Milwaukee Downtown: avg=0 n=0
+[2026-09-23 00:31:02]   Reviews Grayslake: avg=0 n=0
+[2026-09-23 00:31:03]   Reviews Milwaukee Eastside: avg=0 n=0
+[2026-09-23 00:31:03]   Reviews Mequon: avg=0 n=0
+[2026-09-23 00:31:03] Review data complete.
+[2026-09-23 00:31:03] Pulling service mix...
+[2026-09-23 00:31:05]   Service mix Wauwatosa: 8 categories, total=$25,376.03
+[2026-09-23 00:31:06]   Service mix Milwaukee Downtown: 7 categories, total=$13,753.39
+[2026-09-23 00:31:09]   Service mix Grayslake: 6 categories, total=$18,909.55
+[2026-09-23 00:31:10]   Service mix Milwaukee Eastside: 7 categories, total=$17,277.13
+[2026-09-23 00:31:11]   Service mix Mequon: 7 categories, total=$21,320.87
+[2026-09-23 00:31:11] Service mix complete.
+[2026-09-23 00:31:11] Pulling client retention...
+[2026-09-23 00:31:31]   Retention Wauwatosa: {'total': 463, 'active': 414, 'lapsed_30': 30, 'lapsed_60': 19, 'lapsed_90': 0}
+[2026-09-23 00:31:45]   Retention Milwaukee Downtown: {'total': 213, 'active': 176, 'lapsed_30': 23, 'lapsed_60': 14, 'lapsed_90': 0}
+[2026-09-23 00:32:01]   Retention Grayslake: {'total': 295, 'active': 258, 'lapsed_30': 18, 'lapsed_60': 19, 'lapsed_90': 0}
+[2026-09-23 00:32:15]   Retention Milwaukee Eastside: {'total': 216, 'active': 204, 'lapsed_30': 4, 'lapsed_60': 8, 'lapsed_90': 0}
+[2026-09-23 00:32:33]   Retention Mequon: {'total': 341, 'active': 321, 'lapsed_30': 9, 'lapsed_60': 11, 'lapsed_90': 0}
+[2026-09-23 00:32:33] Retention data complete.
+[2026-09-23 00:32:33] Pulling cancellation rates...
+[2026-09-23 00:32:35]   Cancellations Wauwatosa: Grooming 5/36 (13.9%) Daycare 100/299 (33.4%) | SNP+DNP total: 11
+[2026-09-23 00:32:36]   Cancellations Milwaukee Downtown: Grooming 4/14 (28.6%) Daycare 91/163 (55.8%) | SNP+DNP total: 13
+[2026-09-23 00:32:39]   Cancellations Grayslake: Grooming 2/23 (8.7%) Daycare 89/223 (39.9%) | SNP+DNP total: 9
+[2026-09-23 00:32:40]   Cancellations Milwaukee Eastside: Grooming 6/25 (24.0%) Daycare 88/193 (45.6%) | SNP+DNP total: 7
+[2026-09-23 00:32:42]   Cancellations Mequon: Grooming 3/23 (13.0%) Daycare 70/235 (29.8%) | SNP+DNP total: 5
+[2026-09-23 00:32:42] Cancellation data complete.
+[2026-09-23 00:32:46]   Q1 Wauwatosa: $467,958.60 / $407,311.71 (100.0%)
+[2026-09-23 00:32:50]   Q1 Milwaukee Downtown: $239,105.88 / $210,775.45 (100.0%)
+[2026-09-23 00:32:54]   Q1 Grayslake: $350,753.15 / $308,739.23 (100.0%)
+[2026-09-23 00:32:58]   Q1 Milwaukee Eastside: $292,323.68 / $248,627.51 (100.0%)
+[2026-09-23 00:33:02]   Q1 Mequon: $385,077.06 / $349,033.51 (100.0%)
+[2026-09-23 00:33:02] Data complete - building HTML...
+[2026-09-23 00:33:05]   Retail Wauwatosa: $192.03 (0.8%% of revenue)
+[2026-09-23 00:33:07]   Retail Milwaukee Downtown: $21.39 (0.2%% of revenue)
+[2026-09-23 00:33:08]   Retail Grayslake: $80.90 (0.4%% of revenue)
+[2026-09-23 00:33:09]   Retail Milwaukee Eastside: $92.63 (0.5%% of revenue)
+[2026-09-23 00:33:11]   Retail Mequon: $83.87 (0.4%% of revenue)
+[2026-09-23 00:33:15]   YTD Wauwatosa: $1,319,411.57 vs LY $1,186,530.42 (+11.2%)
+[2026-09-23 00:33:20]   YTD Milwaukee Downtown: $633,579.52 vs LY $614,467.91 (+3.1%)
+[2026-09-23 00:33:24]   YTD Grayslake: $1,011,978.79 vs LY $869,215.96 (+16.4%)
+[2026-09-23 00:33:29]   YTD Milwaukee Eastside: $789,907.34 vs LY $736,579.59 (+7.2%)
+[2026-09-23 00:33:33]   YTD Mequon: $1,079,118.34 vs LY $947,412.16 (+13.9%)
+[2026-09-23 00:33:33] Data complete - building HTML...
+[2026-09-23 00:33:33] Pulling daily scorecard data...
+[2026-09-23 00:34:00]   Scorecard Wauwatosa: DC=117 BO=6 GR=20 Retail=$45.57
+[2026-09-23 00:34:25]   Scorecard Milwaukee Downtown: DC=43 BO=0 GR=5 Retail=$14.76
+[2026-09-23 00:34:50]   Scorecard Grayslake: DC=73 BO=2 GR=11 Retail=$78.91
+[2026-09-23 00:35:15]   Scorecard Milwaukee Eastside: DC=62 BO=6 GR=12 Retail=$53.22
+[2026-09-23 00:35:40]   Scorecard Mequon: DC=89 BO=9 GR=9 Retail=$54.92
+[2026-09-23 00:35:40] Scorecard data complete.
+[2026-09-23 00:35:40] Pulling tomorrow's bookings...
+[2026-09-23 00:35:42]   Tomorrow Wauwatosa: DC=111 BO=10
+[2026-09-23 00:35:44]   Tomorrow Milwaukee Downtown: DC=49 BO=2
+[2026-09-23 00:35:45]   Tomorrow Grayslake: DC=69 BO=4
+[2026-09-23 00:35:47]   Tomorrow Milwaukee Eastside: DC=74 BO=7
+[2026-09-23 00:35:48]   Tomorrow Mequon: DC=86 BO=10
+[2026-09-23 00:35:48] Tomorrow data complete.
+[2026-09-23 00:35:48] Generating dashboard files...
+[2026-09-23 00:35:48]   Generated index.html (owner)
+[2026-09-23 00:35:48]   Generated dm.html (district manager)
+[2026-09-23 00:35:48]   Generated gm-wauwatosa.html
+[2026-09-23 00:35:48]   Generated gm-milwaukee-downtown.html
+[2026-09-23 00:35:48]   Generated gm-grayslake.html
+[2026-09-23 00:35:48]   Generated gm-milwaukee-eastside.html
+[2026-09-23 00:35:48]   Generated gm-mequon.html
+[2026-09-23 00:35:48] Dashboard saved to /home/runner/work/centralbark/centralbark/central_bark_dashboard.html
+[2026-09-23 00:35:48] GitHub push failed: Command '['git', '-C', '/home/runner/work/centralbark/centralbark', 'commit', '-m', 'dashboard update Sep 22, 2026 at 07:30 PM']' returned non-zero exit status 128.
+[2026-09-23 00:35:48] Done.
